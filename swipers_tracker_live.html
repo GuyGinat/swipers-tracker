@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swipers — Production Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e293b;
+    --border-hover: #334155;
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --text-muted: #475569;
+    --dev1: #3b82f6;
+    --dev2: #8b5cf6;
+    --tech-art: #06b6d4;
+    --art: #f59e0b;
+    --team: #10b981;
+    --phase1: #3b82f6;
+    --phase2: #10b981;
+    --phase-fest: #f59e0b;
+    --phase3: #ef4444;
+    --must: #ef4444;
+    --should: #f59e0b;
+    --status-done: #10b981;
+    --status-wip: #3b82f6;
+    --status-blocked: #ef4444;
+    --status-todo: #475569;
+    --arrow: #334155;
+    --arrow-crit: #ef4444;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh; width: 100vw;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:var(--surface); }
+  ::-webkit-scrollbar-thumb { background:var(--border-hover); border-radius:3px; }
+
+  /* ── SETUP SCREEN ── */
+  .setup-screen {
+    position:fixed; inset:0; background:var(--bg); z-index:9999;
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:20px;
+  }
+  .setup-screen.hidden { display:none; }
+  .setup-box {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:32px; max-width:520px; width:90%;
+  }
+  .setup-box h2 { font-size:18px; margin-bottom:6px; }
+  .setup-box p { font-size:13px; color:var(--text-dim); line-height:1.6; margin-bottom:16px; }
+  .setup-box .step { margin-bottom:12px; }
+  .setup-box .step-num {
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+    color:var(--phase1); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;
+  }
+  .setup-box label {
+    display:block; font-family:'JetBrains Mono',monospace; font-size:10px;
+    color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;
+  }
+  .setup-box input, .setup-box textarea {
+    width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px;
+    padding:8px 12px; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:12px;
+    outline:none; transition:border-color 0.15s;
+  }
+  .setup-box input:focus, .setup-box textarea:focus { border-color:var(--phase1); }
+  .setup-box textarea { min-height:100px; resize:vertical; }
+  .setup-box .setup-actions { display:flex; gap:8px; margin-top:16px; }
+  .setup-box .or-divider {
+    text-align:center; color:var(--text-muted); font-size:11px; margin:12px 0;
+    font-family:'JetBrains Mono',monospace;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background:rgba(10,14,23,0.95); backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border); padding:10px 20px;
+    display:flex; align-items:center; gap:16px; flex-shrink:0; z-index:100;
+  }
+  .topbar h1 {
+    font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700;
+    letter-spacing:2px; text-transform:uppercase; white-space:nowrap;
+  }
+  .topbar h1 span { color:var(--phase1); }
+
+  .sync-badge {
+    display:flex; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace;
+    font-size:10px; padding:3px 8px; border-radius:4px; border:1px solid var(--border);
+  }
+  .sync-badge .dot { width:7px; height:7px; border-radius:50%; }
+  .sync-badge.connected .dot { background:var(--status-done); }
+  .sync-badge.disconnected .dot { background:var(--must); }
+  .sync-badge.offline .dot { background:var(--text-muted); }
+
+  .tab-group {
+    display:flex; background:var(--surface); border-radius:6px;
+    border:1px solid var(--border); overflow:hidden;
+  }
+  .tab-btn {
+    padding:6px 16px; font-family:'JetBrains Mono',monospace; font-size:11px;
+    font-weight:600; letter-spacing:0.5px; color:var(--text-dim); background:transparent;
+    border:none; cursor:pointer; transition:all 0.15s; text-transform:uppercase;
+  }
+  .tab-btn:hover { color:var(--text); background:var(--surface2); }
+  .tab-btn.active { color:var(--text); background:var(--phase1); }
+
+  .topbar-actions {
+    margin-left:auto; display:flex; gap:8px; align-items:center;
+  }
+  .stats {
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim);
+    display:flex; gap:12px; margin-right:8px;
+  }
+  .stats .stat-val { color:var(--text); font-weight:600; }
+
+  .btn {
+    background:var(--surface); border:1px solid var(--border); color:var(--text-dim);
+    padding:5px 12px; border-radius:5px; cursor:pointer;
+    font-family:'JetBrains Mono',monospace; font-size:11px; transition:all 0.15s; white-space:nowrap;
+  }
+  .btn:hover { color:var(--text); border-color:var(--border-hover); }
+  .btn.primary { background:var(--phase1); border-color:var(--phase1); color:#fff; }
+  .btn.primary:hover { opacity:0.9; }
+  .btn.danger { border-color:var(--must); color:var(--must); }
+  .btn.danger:hover { background:rgba(239,68,68,0.1); }
+
+  .user-name-display {
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim);
+    padding:3px 8px; border-radius:4px; background:var(--surface2); cursor:pointer;
+  }
+  .user-name-display:hover { color:var(--text); }
+
+  /* ── MAIN ── */
+  .main { display:flex; flex:1; overflow:hidden; }
+
+  /* ── GRAPH ── */
+  .graph-panel { flex:1; overflow:hidden; position:relative; cursor:grab; display:none; }
+  .graph-panel.active { display:block; }
+  .graph-panel.dragging { cursor:grabbing; }
+  .graph-viewport { transform-origin:0 0; position:relative; will-change:transform; }
+  .graph-panel svg.arrows { position:absolute; top:0; left:0; pointer-events:none; overflow:visible; }
+  .graph-panel svg.arrows path {
+    fill:none; stroke:var(--arrow); stroke-width:1.5; opacity:0.35;
+    transition: opacity 0.2s, stroke 0.2s, stroke-width 0.2s;
+  }
+  .graph-panel svg.arrows path.critical { stroke:var(--arrow-crit); opacity:0.5; stroke-width:1.8; stroke-dasharray:6,3; }
+  .graph-panel svg.arrows path.highlight { opacity:1; stroke-width:2.5; }
+
+  .sprint-column { position:absolute; top:0; }
+  .sprint-label {
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+    letter-spacing:1.2px; text-transform:uppercase; padding:4px 10px;
+    border-radius:4px; margin-bottom:4px; display:inline-block;
+  }
+  .sprint-dates {
+    font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-dim);
+    margin-bottom:10px; padding-left:2px;
+  }
+  .task-node {
+    background:var(--surface); border:1px solid var(--border); border-radius:6px;
+    padding:7px 10px 7px 13px; margin-bottom:7px; cursor:pointer;
+    transition:all 0.12s; position:relative; width:195px;
+  }
+  .task-node:hover { border-color:var(--border-hover); transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,0.25); }
+  .task-node.selected { border-color:var(--phase1); box-shadow:0 0 0 1px var(--phase1),0 4px 16px rgba(59,130,246,0.12); }
+  .task-node.dimmed { opacity:0.15; }
+  .task-node .priority-bar { position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:6px 0 0 6px; }
+  .task-node .status-icon {
+    position:absolute; right:6px; top:6px; width:14px; height:14px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:8px; color:#fff; font-weight:700;
+  }
+  .task-node .task-title { font-size:10px; font-weight:600; line-height:1.3; color:var(--text); margin-bottom:2px; padding-right:18px; }
+  .task-node .owner-dot { width:7px; height:7px; border-radius:2px; display:inline-block; margin-right:3px; vertical-align:middle; }
+  .task-node .task-meta { font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--text-dim); }
+  .phase-band { position:absolute; border-radius:8px; opacity:0.03; pointer-events:none; }
+
+  /* ── LIST ── */
+  .list-panel { flex:1; overflow:hidden; display:none; flex-direction:column; }
+  .list-panel.active { display:flex; }
+
+  .list-toolbar {
+    padding:12px 20px; display:flex; gap:10px; align-items:center;
+    border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap;
+  }
+  .filter-group { display:flex; gap:4px; align-items:center; }
+  .filter-label {
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim);
+    text-transform:uppercase; letter-spacing:0.8px; margin-right:4px;
+  }
+  .filter-btn {
+    padding:3px 8px; border-radius:4px; font-family:'JetBrains Mono',monospace;
+    font-size:10px; border:1px solid var(--border); background:transparent;
+    color:var(--text-dim); cursor:pointer; transition:all 0.12s;
+  }
+  .filter-btn:hover { border-color:var(--border-hover); color:var(--text); }
+  .filter-btn.active { background:var(--surface2); color:var(--text); border-color:var(--text-dim); }
+
+  .search-input {
+    background:var(--surface); border:1px solid var(--border); border-radius:5px;
+    padding:5px 10px; font-family:'Space Grotesk',sans-serif; font-size:12px;
+    color:var(--text); outline:none; width:200px; transition:border-color 0.15s;
+  }
+  .search-input:focus { border-color:var(--phase1); }
+  .search-input::placeholder { color:var(--text-muted); }
+
+  .list-scroll { flex:1; overflow-y:auto; padding:8px 16px; }
+  .list-sprint-header {
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; padding:10px 8px 6px;
+    display:flex; align-items:center; gap:8px; position:sticky; top:0;
+    background:var(--bg); z-index:10;
+  }
+  .list-sprint-header .sprint-dot { width:8px; height:8px; border-radius:2px; }
+  .list-sprint-header .sprint-progress { margin-left:auto; font-weight:400; font-size:10px; color:var(--text-dim); }
+
+  .list-item {
+    display:grid; grid-template-columns:32px 1fr 90px 90px 80px 36px;
+    align-items:center; gap:8px; padding:8px 10px; border-radius:6px;
+    margin-bottom:2px; transition:background 0.1s; cursor:pointer;
+  }
+  .list-item:hover { background:var(--surface); }
+  .list-item.selected { background:var(--surface2); outline:1px solid var(--phase1); }
+
+  .list-item .status-select {
+    width:28px; height:28px; border-radius:50%; border:2px solid var(--border);
+    background:transparent; cursor:pointer; display:flex; align-items:center;
+    justify-content:center; font-size:12px; transition:all 0.15s; flex-shrink:0;
+  }
+  .list-item .status-select:hover { border-color:var(--text-dim); }
+  .list-item .item-title { font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px; }
+  .list-item .item-title .owner-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+  .list-item .item-owner { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); }
+  .list-item .item-priority { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600; }
+  .list-item .item-blockers { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-dim); text-align:center; }
+  .list-item .item-expand {
+    width:28px; height:28px; border-radius:4px; border:none; background:transparent;
+    color:var(--text-dim); cursor:pointer; font-size:14px; display:flex;
+    align-items:center; justify-content:center; transition:all 0.12s;
+  }
+  .list-item .item-expand:hover { background:var(--surface2); color:var(--text); }
+
+  .list-item-detail { display:none; padding:8px 10px 12px 50px; font-size:11px; color:var(--text-dim); line-height:1.6; }
+  .list-item-detail.open { display:block; }
+  .list-item-detail .dep-section { margin-top:6px; }
+  .list-item-detail .dep-label {
+    font-family:'JetBrains Mono',monospace; font-size:9px; text-transform:uppercase;
+    letter-spacing:0.5px; color:var(--text-muted); margin-bottom:3px;
+  }
+  .list-item-detail .dep-tag {
+    display:inline-block; padding:2px 6px; border-radius:3px; font-family:'JetBrains Mono',monospace;
+    font-size:9px; margin:2px; cursor:pointer; transition:all 0.1s;
+  }
+  .list-item-detail .dep-tag.upstream { background:rgba(59,130,246,0.12); color:var(--dev1); border:1px solid rgba(59,130,246,0.2); }
+  .list-item-detail .dep-tag.downstream { background:rgba(239,68,68,0.1); color:var(--must); border:1px solid rgba(239,68,68,0.15); }
+
+  /* ── EDIT PANEL ── */
+  .edit-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; opacity:0; pointer-events:none; transition:opacity 0.2s; }
+  .edit-overlay.open { opacity:1; pointer-events:all; }
+  .edit-panel {
+    position:fixed; right:-460px; top:0; bottom:0; width:460px; background:var(--surface);
+    border-left:1px solid var(--border); z-index:201; overflow-y:auto; padding:24px;
+    transition:right 0.25s ease;
+  }
+  .edit-panel.open { right:0; }
+  .edit-panel h2 { font-size:16px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; }
+  .edit-panel .close-btn {
+    width:28px; height:28px; border-radius:4px; border:1px solid var(--border);
+    background:transparent; color:var(--text-dim); cursor:pointer; font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .edit-panel .close-btn:hover { color:var(--text); border-color:var(--border-hover); }
+
+  .field-group { margin-bottom:14px; }
+  .field-label {
+    font-family:'JetBrains Mono',monospace; font-size:10px; text-transform:uppercase;
+    letter-spacing:0.8px; color:var(--text-dim); margin-bottom:5px;
+  }
+  .field-value {
+    background:var(--bg); border:1px solid var(--border); border-radius:5px;
+    padding:8px 10px; font-size:12px; color:var(--text); width:100%;
+    outline:none; font-family:'Space Grotesk',sans-serif; transition:border-color 0.15s;
+  }
+  .field-value:focus { border-color:var(--phase1); }
+  textarea.field-value { min-height:60px; resize:vertical; line-height:1.5; }
+
+  .status-radio-group { display:flex; gap:6px; flex-wrap:wrap; }
+  .status-radio {
+    padding:5px 12px; border-radius:5px; font-family:'JetBrains Mono',monospace;
+    font-size:10px; font-weight:600; border:1px solid var(--border); background:transparent;
+    color:var(--text-dim); cursor:pointer; transition:all 0.12s; text-transform:uppercase;
+  }
+  .status-radio:hover { border-color:var(--border-hover); color:var(--text); }
+  .status-radio.active { color:#fff; }
+  .status-radio[data-status="done"].active { background:var(--status-done); border-color:var(--status-done); }
+  .status-radio[data-status="wip"].active { background:var(--status-wip); border-color:var(--status-wip); }
+  .status-radio[data-status="blocked"].active { background:var(--status-blocked); border-color:var(--status-blocked); }
+  .status-radio[data-status="todo"].active { background:var(--status-todo); border-color:var(--status-todo); }
+
+  .dep-list-edit { display:flex; flex-direction:column; gap:4px; }
+  .dep-row { display:flex; align-items:center; gap:6px; }
+  .dep-row .dep-name { flex:1; font-size:11px; padding:4px 8px; background:var(--bg); border-radius:4px; border:1px solid var(--border); }
+  .dep-row .remove-dep {
+    width:22px; height:22px; border-radius:4px; border:1px solid var(--border);
+    background:transparent; color:var(--text-dim); cursor:pointer; font-size:12px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .dep-row .remove-dep:hover { color:var(--must); border-color:var(--must); }
+  .add-dep-row { display:flex; gap:6px; margin-top:6px; }
+  .add-dep-row select {
+    flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text);
+    padding:5px 8px; border-radius:4px; font-family:'Space Grotesk',sans-serif; font-size:11px; outline:none;
+  }
+
+  /* ── ACTIVITY FEED ── */
+  .activity-feed {
+    position:fixed; bottom:16px; left:16px; z-index:150;
+    display:flex; flex-direction:column-reverse; gap:4px; max-height:200px; pointer-events:none;
+  }
+  .activity-toast {
+    background:var(--surface); border:1px solid var(--border); border-radius:6px;
+    padding:6px 12px; font-family:'JetBrains Mono',monospace; font-size:10px;
+    color:var(--text-dim); animation:toastIn 0.3s ease, toastOut 0.3s ease 4s forwards;
+    max-width:360px;
+  }
+  .activity-toast .toast-user { color:var(--phase1); font-weight:600; }
+  @keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes toastOut { from { opacity:1; } to { opacity:0; } }
+
+  /* ── TOOLTIP ── */
+  .tooltip {
+    position:fixed; z-index:300; background:#1a1f2e; border:1px solid var(--border);
+    border-radius:8px; padding:10px 14px; max-width:300px; pointer-events:none;
+    opacity:0; transition:opacity 0.12s; box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  }
+  .tooltip.visible { opacity:1; }
+  .tooltip .tt-title { font-size:12px; font-weight:700; margin-bottom:4px; }
+  .tooltip .tt-detail { font-size:10px; color:var(--text-dim); line-height:1.5; }
+  .tooltip .tt-status { margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:0.5px; }
+
+  #importInput { display:none; }
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP SCREEN ══ -->
+<div class="setup-screen" id="setupScreen">
+  <div class="setup-box">
+    <h2>🔧 Firebase Setup</h2>
+    <p>To enable live sync, create a free Firebase project and paste your config below. This only needs to be done once — after setup, share the URL with your team and everyone will see changes in real time.</p>
+    <div class="step">
+      <div class="step-num">Step 1</div>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:8px">Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--phase1)">Firebase Console</a> → Create Project → Build → Realtime Database → Create Database (Test Mode) → Then go to Project Settings → Your Apps → Web App → Copy the config</p>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 2 — Paste your Firebase config</div>
+      <textarea id="firebaseConfigInput" placeholder='{
+  "apiKey": "AIza...",
+  "authDomain": "your-project.firebaseapp.com",
+  "databaseURL": "https://your-project-default-rtdb.firebaseio.com",
+  "projectId": "your-project",
+  "storageBucket": "your-project.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123:web:abc123"
+}'></textarea>
+    </div>
+    <div class="step">
+      <div class="step-num">Your name (shown in activity feed)</div>
+      <input type="text" id="userNameInput" placeholder="e.g. Alex" value="">
+    </div>
+    <div class="setup-actions">
+      <button class="btn primary" onclick="connectFirebase()">Connect & Start</button>
+    </div>
+    <div class="or-divider">— or —</div>
+    <button class="btn" onclick="startOffline()" style="width:100%">Use Offline (localStorage only)</button>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<div class="topbar" id="topbar" style="display:none">
+  <h1><span>SWIPERS</span> Tracker</h1>
+  <div class="sync-badge offline" id="syncBadge"><div class="dot"></div><span id="syncText">Offline</span></div>
+  <div class="tab-group">
+    <button class="tab-btn active" data-tab="graph">Graph</button>
+    <button class="tab-btn" data-tab="list">List</button>
+  </div>
+  <div class="topbar-actions">
+    <div class="stats">
+      <span>Done: <span class="stat-val" id="statDone">0</span></span>
+      <span>WIP: <span class="stat-val" id="statWip">0</span></span>
+      <span>Blocked: <span class="stat-val" id="statBlocked">0</span></span>
+      <span>Todo: <span class="stat-val" id="statTodo">0</span></span>
+    </div>
+    <div class="user-name-display" id="userDisplay" onclick="changeUserName()" title="Click to change name">—</div>
+    <button class="btn" onclick="exportData()">Export</button>
+    <button class="btn" onclick="document.getElementById('importInput').click()">Import</button>
+    <input type="file" id="importInput" accept=".json" onchange="importData(event)">
+  </div>
+</div>
+
+<div class="main" id="mainApp" style="display:none">
+  <div class="graph-panel active" id="graphPanel">
+    <div class="graph-viewport" id="graphViewport"></div>
+  </div>
+  <div class="list-panel" id="listPanel">
+    <div class="list-toolbar">
+      <div class="filter-group">
+        <span class="filter-label">Status:</span>
+        <button class="filter-btn active" data-filter-status="all">All</button>
+        <button class="filter-btn" data-filter-status="todo">Todo</button>
+        <button class="filter-btn" data-filter-status="wip">WIP</button>
+        <button class="filter-btn" data-filter-status="blocked">Blocked</button>
+        <button class="filter-btn" data-filter-status="done">Done</button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Owner:</span>
+        <button class="filter-btn active" data-filter-owner="all">All</button>
+        <button class="filter-btn" data-filter-owner="dev1">Dev 1</button>
+        <button class="filter-btn" data-filter-owner="dev2">Dev 2</button>
+        <button class="filter-btn" data-filter-owner="techart">Tech Art</button>
+        <button class="filter-btn" data-filter-owner="art">Art/3D</button>
+        <button class="filter-btn" data-filter-owner="team">Team</button>
+      </div>
+      <input class="search-input" type="text" placeholder="Search tasks..." id="searchInput" oninput="renderList()">
+    </div>
+    <div class="list-scroll" id="listScroll"></div>
+  </div>
+</div>
+
+<div class="edit-overlay" id="editOverlay" onclick="closeEditPanel()"></div>
+<div class="edit-panel" id="editPanel">
+  <h2><span id="editTitle">Edit Task</span><button class="close-btn" onclick="closeEditPanel()">×</button></h2>
+  <div id="editContent"></div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-title" id="ttTitle"></div>
+  <div class="tt-detail" id="ttDetail"></div>
+  <div class="tt-status" id="ttStatus"></div>
+</div>
+
+<div class="activity-feed" id="activityFeed"></div>
+
+<!-- ══ FIREBASE SDK ══ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<script>
+// ══════════════════════════════════════════
+// INITIAL DATA
+// ══════════════════════════════════════════
+const INITIAL_TASKS = [
+  {id:"s0_arch",sprint:0,title:"Project Architecture",owner:"team",priority:"must",detail:"Unity/Fusion version lock, Git strategy, NetworkRunner bootstrap, seed distribution",status:"todo"},
+  {id:"s0_procgen",sprint:0,title:"Procedural Level Gen V1",owner:"dev1",priority:"must",detail:"Tile/room generation from seed, deterministic across all clients, 8-12 rooms",status:"todo"},
+  {id:"s0_movement",sprint:0,title:"Networked Swiper Movement",owner:"dev2",priority:"must",detail:"Floorborb controller, client prediction, interpolation for remotes",status:"todo"},
+  {id:"s0_artpipe",sprint:0,title:"Art Pipeline Setup",owner:"art",priority:"must",detail:"Style guide, modular kit dimensions, shader library, lighting rig, first kit pieces",status:"todo"},
+  {id:"s0_tools",sprint:0,title:"Sprint Planning & Tooling",owner:"team",priority:"must",detail:"Project board, playtest schedule, Discord server",status:"todo"},
+  {id:"s1_grab",sprint:1,title:"Grab System (Mop Hand)",owner:"dev2",priority:"must",detail:"Dual-point ConfigurableJoint, Perlin wobble, Forecast Physics sync",status:"todo"},
+  {id:"s1_loot",sprint:1,title:"Loot & Vacuum System",owner:"dev1",priority:"must",detail:"Loot spawning, vacuum suction trigger, CurrentHaul tracking, aquarium state",status:"todo"},
+  {id:"s1_mic",sprint:1,title:"MIC Blueprint Interface",owner:"dev1",priority:"must",detail:"2D map from procgen data, Swiper dots + vision cones at 30Hz, threshold bar",status:"todo"},
+  {id:"s1_envart",sprint:1,title:"Environment Kit Assembly",owner:"art",priority:"must",detail:"Modular walls/floors/doors/vents + 8-10 junk props",status:"todo"},
+  {id:"s1_techart",sprint:1,title:"Visual Foundation",owner:"techart",priority:"must",detail:"Highlight shader, assembly tool, post-processing stack",status:"todo"},
+  {id:"s2_guard",sprint:2,title:"Guard AI — Full FSM",owner:"dev2",priority:"must",detail:"5-state: Patrol→Suspicious→Chase→Attack→Ragdoll, vision cones, noise detection",status:"todo"},
+  {id:"s2_manual",sprint:2,title:"Deactivation Matrix + Manual",owner:"dev1",priority:"must",detail:"Procedural trait-to-code matrix, MIC manual UI, code input, wrong code penalty",status:"todo"},
+  {id:"s2_door",sprint:2,title:"Door Breaching Module × 1",owner:"dev1",priority:"must",detail:"Microverse camera shift, procedural puzzle state, Bypass Codex rules",status:"todo"},
+  {id:"s2_timer",sprint:2,title:"Timer System (Shared Health)",owner:"dev2",priority:"must",detail:"Server-authoritative countdown, penalty queue, visual escalation, arrest state",status:"todo"},
+  {id:"s2_bull",sprint:2,title:"Bull in a China Shop V1",owner:"dev2",priority:"must",detail:"Clutter spawner, CCD on held items, sound ping → guard alert",status:"todo"},
+  {id:"s2_vsart",sprint:2,title:"Vertical Slice Art Polish",owner:"art",priority:"must",detail:"Final lighting, guard model, Floorborb model, aquarium VFX, vacuum model",status:"todo"},
+  {id:"s2_playtest",sprint:2,title:"VS Playtest & Bugfix",owner:"team",priority:"must",detail:"2 days 4-player testing, priority bug fixes, record footage",status:"todo"},
+  {id:"s3_voice",sprint:3,title:"Voice Chat Integration",owner:"dev1",priority:"must",detail:"Photon Voice 2, proximity spatial + radio PTT, wall occlusion, swallowed distortion",status:"todo"},
+  {id:"s3_sabotage",sprint:3,title:"Sabotage / Needy Modules",owner:"dev2",priority:"must",detail:"Random trigger engine, Alarm Override, Blackout, Oxygen Depletion",status:"todo"},
+  {id:"s3_envfx",sprint:3,title:"Sabotage Environment FX",owner:"techart",priority:"must",detail:"Blackout lighting toggle, NVG shader, sprinkler particles + friction",status:"todo"},
+  {id:"s3_verbal",sprint:3,title:"Guard Verbal Loop Polish",owner:"dev1",priority:"should",detail:"Visual/auditory trait randomization, MIC matrix UI polish",status:"todo"},
+  {id:"s3_guard2",sprint:3,title:"2nd Guard Species",owner:"art",priority:"should",detail:"New silhouette, behavioral variant (blind+hearing), matrix entry",status:"todo"},
+  {id:"s4_doors",sprint:4,title:"Door Modules × 2 More",owner:"dev1",priority:"must",detail:"Color-matching variant + timed pressure variant, new Codex pages",status:"todo"},
+  {id:"s4_summary",sprint:4,title:"Heist Summary Screen",owner:"dev2",priority:"must",detail:"Gross Haul tally, XP bar, bail deductions, mugshot system, save to JSON",status:"todo"},
+  {id:"s4_lobby",sprint:4,title:"Basic Lobby (Demo)",owner:"dev1",priority:"must",detail:"Ship spawn, role selection, ready-up, room codes, solo fallback stub",status:"todo"},
+  {id:"s4_gadgets",sprint:4,title:"Gadgets: Shrink + Gravity",owner:"dev2",priority:"should",detail:"Shrink Gun (0.5x scale), Gravity Gun (invert gravity), Omni-Cell economy",status:"todo"},
+  {id:"s4_demoart",sprint:4,title:"Demo Level Art Polish",owner:"art",priority:"must",detail:"Hero props, 15-20 junk objects, environmental storytelling pieces",status:"todo"},
+  {id:"s4_audio",sprint:4,title:"Audio First Pass",owner:"techart",priority:"should",detail:"Placeholder SFX, 1 ambient + 1 tension track, spatial audio curves",status:"todo"},
+  {id:"s5_nettest",sprint:5,title:"Network Stress Test & Fix",owner:"dev1",priority:"must",detail:"20+ sessions, latency sim, AoI tuning, object pooling",status:"todo"},
+  {id:"s5_solo",sprint:5,title:"Solo Play Fallback",owner:"dev1",priority:"must",detail:"Auto-MIC or bot MIC for solo demo players",status:"todo"},
+  {id:"s5_settings",sprint:5,title:"Settings Menu",owner:"dev2",priority:"must",detail:"Resolution, audio sliders, key rebinding, controller prompts",status:"todo"},
+  {id:"s5_steam",sprint:5,title:"Steam Page + Steamworks",owner:"dev1",priority:"must",detail:"Coming Soon page, capsule art, tags, Auto-Cloud, Rich Presence",status:"todo"},
+  {id:"s5_demofeat",sprint:5,title:"Demo-Specific Features",owner:"dev2",priority:"must",detail:"Wishlist CTA, locked feature labels, session cap, analytics",status:"todo"},
+  {id:"s5_vispol",sprint:5,title:"Visual Polish Pass",owner:"techart",priority:"must",detail:"Final lighting, UI polish, VFX pass, trailer capture",status:"todo"},
+  {id:"s55_submit",sprint:5.5,title:"Demo Build & Valve Submit",owner:"dev1",priority:"must",detail:"Strip debug, crash reporting, upload Steamworks, hotfix pipeline",status:"todo"},
+  {id:"s55_marketing",sprint:5.5,title:"Marketing Sprint",owner:"art",priority:"must",detail:"Trailer, press kit, content creator outreach, TikTok clips",status:"todo"},
+  {id:"s55_nextprep",sprint:5.5,title:"Next Fest Preparation",owner:"team",priority:"must",detail:"Livestream schedule, Discord setup, monitoring shifts",status:"todo"},
+  {id:"s6_liveops",sprint:6,title:"Live Ops (Next Fest)",owner:"team",priority:"must",detail:"Monitor crashes, hotfix <4hr, community engagement",status:"todo"},
+  {id:"s6_data",sprint:6,title:"Post-Fest Data Analysis",owner:"dev1",priority:"must",detail:"Analytics, feedback categorization, MoSCoW backlog",status:"todo"},
+  {id:"s6_save",sprint:6,title:"Save System Architecture",owner:"dev2",priority:"should",detail:"Crew profile, JSON versioning, atomic writes, Steam Cloud",status:"todo"},
+  {id:"s7_levels",sprint:7,title:"2 Additional Tilesets",owner:"art",priority:"must",detail:"2 new environments with kit pieces, props, sealed artifacts",status:"todo"},
+  {id:"s7_economy",sprint:7,title:"Economy System Full Loop",owner:"dev2",priority:"must",detail:"Transaction ledger, XP accumulator, bail calc, currency",status:"todo"},
+  {id:"s7_shop",sprint:7,title:"Shop (Simplified)",owner:"dev2",priority:"must",detail:"Gadget Emporium, Essentials, rotating stock timer",status:"todo"},
+  {id:"s7_galaxy",sprint:7,title:"Galactic Navigation",owner:"dev1",priority:"must",detail:"Ship bridge map, fuel gauge, travel check, planet select",status:"todo"},
+  {id:"s7_guard3",sprint:7,title:"3rd Guard Species",owner:"art",priority:"should",detail:"New behavioral variant, per-planet, difficulty scaling",status:"todo"},
+  {id:"s8_lobbyf",sprint:8,title:"Lobby Full Version",owner:"dev1",priority:"must",detail:"Hall of Fame/Shame, customization, role assignment, intel",status:"todo"},
+  {id:"s8_trophy",sprint:8,title:"Trophy System",owner:"dev2",priority:"must",detail:"Trophy display, LOD, inspection, mugshot capture",status:"todo"},
+  {id:"s8_steamfeat",sprint:8,title:"Steamworks Features",owner:"dev1",priority:"must",detail:"Achievements, Cloud Saves, Steam Input, matchmaking",status:"todo"},
+  {id:"s8_gadgets2",sprint:8,title:"Gadgets: Texture + Freeze",owner:"dev2",priority:"should",detail:"Texture Gun, Freeze Ray, Omni-Cell costs",status:"todo"},
+  {id:"s8_tutorial",sprint:8,title:"Tutorial / Onboarding",owner:"dev1",priority:"must",detail:"Guided first heist, tooltips, MIC tutorial, skippable",status:"todo"},
+  {id:"s8_finalart",sprint:8,title:"Final Art Assets",owner:"art",priority:"must",detail:"3 sealed artifacts, ship lobby, guards, UI art pass",status:"todo"},
+  {id:"s9_perf",sprint:9,title:"Performance Optimization",owner:"dev1",priority:"must",detail:"Profiling, LODs, pooling, bandwidth, 60FPS GTX1060",status:"todo"},
+  {id:"s9_balance",sprint:9,title:"Balance Pass",owner:"dev2",priority:"must",detail:"Timer/penalty tuning, guards, loot, economy",status:"todo"},
+  {id:"s9_bugs",sprint:9,title:"Bug Fixing Sprint",owner:"team",priority:"must",detail:"P0/P1 clear, networking edge cases, regression",status:"todo"},
+  {id:"s9_audiof",sprint:9,title:"Audio Final Pass",owner:"techart",priority:"should",detail:"Final SFX, music, spatial tuning, guard sounds",status:"todo"},
+  {id:"s9_a11y",sprint:9,title:"Accessibility Features",owner:"dev2",priority:"should",detail:"Subtitles, colorblind, hold/toggle, UI scaling",status:"todo"},
+  {id:"s10_rc",sprint:10,title:"Release Candidate Build",owner:"team",priority:"must",detail:"Final build, playthrough, Steam Deck, upload",status:"todo"},
+  {id:"s10_iarc",sprint:10,title:"IARC & Pricing",owner:"dev1",priority:"must",detail:"Age rating, pricing, launch discount, store final",status:"todo"},
+  {id:"s10_press",sprint:10,title:"Press & Streamer Keys",owner:"art",priority:"must",detail:"Keys 1-2 weeks pre-launch, warm leads from Fest",status:"todo"},
+  {id:"s10_launch",sprint:10,title:"Launch Day Ops Plan",owner:"team",priority:"must",detail:"CCU check, standby, hotfix pipeline, 10 reviews",status:"todo"},
+  {id:"s10_roadmap",sprint:10,title:"Post-Launch Roadmap",owner:"team",priority:"should",detail:"2 more planets, cosmetics, bargain bin",status:"todo"},
+];
+
+const INITIAL_DEPS = [
+  ["s0_arch","s1_grab",true],["s0_arch","s1_loot",true],["s0_procgen","s1_loot",true],
+  ["s0_procgen","s1_mic",true],["s0_movement","s1_grab",true],["s0_artpipe","s1_envart",false],
+  ["s0_artpipe","s1_techart",false],["s1_grab","s2_guard",true],["s1_grab","s2_bull",true],
+  ["s1_loot","s2_timer",true],["s1_loot","s2_manual",true],["s1_mic","s2_manual",true],
+  ["s1_mic","s2_door",true],["s1_envart","s2_vsart",false],["s1_techart","s2_vsart",false],
+  ["s2_guard","s3_sabotage",true],["s2_guard","s3_verbal",false],["s2_guard","s3_guard2",false],
+  ["s2_manual","s3_voice",true],["s2_door","s3_sabotage",false],["s2_timer","s3_sabotage",true],
+  ["s2_vsart","s3_envfx",false],["s2_playtest","s3_voice",false],["s3_voice","s4_lobby",true],
+  ["s3_sabotage","s4_doors",false],["s3_verbal","s4_doors",false],["s3_guard2","s4_demoart",false],
+  ["s2_door","s4_doors",true],["s2_timer","s4_summary",true],["s1_grab","s4_gadgets",false],
+  ["s1_loot","s4_summary",true],["s4_lobby","s5_solo",true],["s4_lobby","s5_steam",true],
+  ["s4_summary","s5_demofeat",true],["s4_demoart","s5_vispol",false],["s4_audio","s5_vispol",false],
+  ["s4_doors","s5_nettest",false],["s4_gadgets","s5_nettest",false],["s5_nettest","s55_submit",true],
+  ["s5_solo","s55_submit",true],["s5_settings","s55_submit",true],["s5_steam","s55_submit",true],
+  ["s5_demofeat","s55_submit",true],["s5_vispol","s55_submit",true],["s5_vispol","s55_marketing",false],
+  ["s5_steam","s55_marketing",true],["s55_submit","s6_liveops",true],["s55_marketing","s6_liveops",true],
+  ["s55_nextprep","s6_liveops",true],["s6_data","s7_economy",true],["s6_data","s7_levels",false],
+  ["s6_save","s7_economy",true],["s6_save","s7_shop",true],["s4_summary","s7_economy",true],
+  ["s7_economy","s8_lobbyf",true],["s7_shop","s8_lobbyf",true],["s7_galaxy","s8_lobbyf",true],
+  ["s7_levels","s8_finalart",true],["s7_economy","s8_trophy",true],["s7_guard3","s8_finalart",false],
+  ["s4_gadgets","s8_gadgets2",false],["s4_lobby","s8_lobbyf",true],["s5_steam","s8_steamfeat",true],
+  ["s8_lobbyf","s9_perf",true],["s8_trophy","s9_perf",false],["s8_steamfeat","s9_bugs",true],
+  ["s8_gadgets2","s9_balance",false],["s8_tutorial","s9_bugs",false],["s8_finalart","s9_perf",true],
+  ["s8_finalart","s9_audiof",false],["s9_perf","s10_rc",true],["s9_balance","s10_rc",true],
+  ["s9_bugs","s10_rc",true],["s9_audiof","s10_rc",false],["s9_a11y","s10_rc",false],
+  ["s9_perf","s10_iarc",false],["s8_steamfeat","s10_iarc",true],["s55_marketing","s10_press",false],
+];
+
+const SPRINTS = [
+  {num:0,label:"S0",dates:"Mar 7–21",phase:"phase1",title:"Foundation"},
+  {num:1,label:"S1",dates:"Mar 21–Apr 4",phase:"phase1",title:"Core Loop"},
+  {num:2,label:"S2",dates:"Apr 4–15",phase:"phase1",title:"VERT SLICE"},
+  {num:3,label:"S3",dates:"Apr 15–29",phase:"phase2",title:"Comms & Sab"},
+  {num:4,label:"S4",dates:"Apr 29–May 13",phase:"phase2",title:"Demo Content"},
+  {num:5,label:"S5",dates:"May 13–25",phase:"phase2",title:"Demo Polish"},
+  {num:5.5,label:"S5.5",dates:"May 25–Jun 8",phase:"phase2",title:"Submit"},
+  {num:6,label:"S6",dates:"Jun 8–22",phase:"fest",title:"NEXT FEST"},
+  {num:7,label:"S7",dates:"Jun 22–Jul 6",phase:"phase3",title:"Content+Meta"},
+  {num:8,label:"S8",dates:"Jul 6–20",phase:"phase3",title:"FEAT LOCK"},
+  {num:9,label:"S9",dates:"Jul 20–Aug 3",phase:"phase3",title:"Polish"},
+  {num:10,label:"S10",dates:"Aug 3–17",phase:"phase3",title:"LAUNCH"},
+];
+
+const OWNER_LABELS={dev1:'Dev 1',dev2:'Dev 2',techart:'Tech Art',art:'Art/3D',team:'Full Team'};
+const OWNER_COLORS={dev1:'#3b82f6',dev2:'#8b5cf6',techart:'#06b6d4',art:'#f59e0b',team:'#10b981'};
+const PHASE_COLORS={phase1:'#3b82f6',phase2:'#10b981',fest:'#f59e0b',phase3:'#ef4444'};
+const STATUS_COLORS={done:'#10b981',wip:'#3b82f6',blocked:'#ef4444',todo:'#475569'};
+const STATUS_ICONS={done:'✓',wip:'◐',blocked:'!',todo:''};
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let tasks = JSON.parse(JSON.stringify(INITIAL_TASKS));
+let deps = JSON.parse(JSON.stringify(INITIAL_DEPS));
+let currentTab = 'graph';
+let selectedTaskId = null;
+let filterStatus = 'all';
+let filterOwner = 'all';
+let userName = 'Anonymous';
+let db = null;
+let isOnline = false;
+let suppressRemoteRender = false;
+
+// ══════════════════════════════════════════
+// FIREBASE
+// ══════════════════════════════════════════
+function connectFirebase() {
+  const configText = document.getElementById('firebaseConfigInput').value.trim();
+  const name = document.getElementById('userNameInput').value.trim() || 'Anonymous';
+  userName = name;
+
+  try {
+    const config = JSON.parse(configText);
+    if (!config.databaseURL) { alert('Missing databaseURL in config'); return; }
+
+    firebase.initializeApp(config);
+    db = firebase.database();
+
+    // Save config locally for reconnection
+    localStorage.setItem('swipers_fb_config', configText);
+    localStorage.setItem('swipers_username', name);
+
+    startApp();
+    setupRealtimeListeners();
+  } catch(e) {
+    alert('Invalid config JSON: ' + e.message);
+  }
+}
+
+function setupRealtimeListeners() {
+  const connRef = firebase.database().ref('.info/connected');
+  connRef.on('value', (snap) => {
+    isOnline = snap.val() === true;
+    updateSyncBadge();
+  });
+
+  // Listen for data
+  db.ref('tasks').on('value', (snap) => {
+    if (suppressRemoteRender) return;
+    const data = snap.val();
+    if (data) {
+      tasks = Object.values(data);
+      renderAll();
+    }
+  });
+
+  db.ref('deps').on('value', (snap) => {
+    if (suppressRemoteRender) return;
+    const data = snap.val();
+    if (data) {
+      deps = Object.values(data).map(d => [d.from, d.to, d.critical]);
+      renderAll();
+    }
+  });
+
+  // Activity feed
+  db.ref('activity').orderByChild('ts').limitToLast(1).on('child_added', (snap) => {
+    const a = snap.val();
+    if (a && a.user !== userName) showToast(a.user, a.action);
+  });
+
+  // Initial push if DB is empty
+  db.ref('tasks').once('value', (snap) => {
+    if (!snap.val()) {
+      pushAllToFirebase();
+    }
+  });
+}
+
+function pushAllToFirebase() {
+  if (!db) return;
+  suppressRemoteRender = true;
+  const taskObj = {};
+  tasks.forEach(t => taskObj[t.id] = t);
+  const depObj = {};
+  deps.forEach((d, i) => depObj['dep_'+i] = { from:d[0], to:d[1], critical:d[2] });
+  Promise.all([
+    db.ref('tasks').set(taskObj),
+    db.ref('deps').set(depObj)
+  ]).then(() => { suppressRemoteRender = false; });
+}
+
+function pushTaskUpdate(task, action) {
+  if (!db) { saveLocal(); return; }
+  db.ref('tasks/' + task.id).set(task);
+  logActivity(action || `updated "${task.title}"`);
+}
+
+function pushDepsUpdate() {
+  if (!db) { saveLocal(); return; }
+  const depObj = {};
+  deps.forEach((d, i) => depObj['dep_'+i] = { from:d[0], to:d[1], critical:d[2] });
+  db.ref('deps').set(depObj);
+}
+
+function pushTaskDelete(taskId) {
+  if (!db) { saveLocal(); return; }
+  db.ref('tasks/' + taskId).remove();
+  pushDepsUpdate();
+}
+
+function logActivity(action) {
+  if (!db) return;
+  db.ref('activity').push({ user: userName, action, ts: firebase.database.ServerValue.TIMESTAMP });
+}
+
+function updateSyncBadge() {
+  const badge = document.getElementById('syncBadge');
+  const text = document.getElementById('syncText');
+  badge.className = 'sync-badge ' + (db ? (isOnline ? 'connected' : 'disconnected') : 'offline');
+  text.textContent = db ? (isOnline ? 'Live' : 'Reconnecting...') : 'Offline';
+}
+
+// ══════════════════════════════════════════
+// LOCAL STORAGE FALLBACK
+// ══════════════════════════════════════════
+function saveLocal() {
+  try {
+    localStorage.setItem('swipers_tasks', JSON.stringify(tasks));
+    localStorage.setItem('swipers_deps', JSON.stringify(deps));
+  } catch(e){}
+}
+
+function loadLocal() {
+  try {
+    const t = localStorage.getItem('swipers_tasks');
+    const d = localStorage.getItem('swipers_deps');
+    if (t) tasks = JSON.parse(t);
+    if (d) deps = JSON.parse(d);
+  } catch(e){}
+}
+
+function startOffline() {
+  userName = document.getElementById('userNameInput').value.trim() || 'Anonymous';
+  localStorage.setItem('swipers_username', userName);
+  loadLocal();
+  startApp();
+}
+
+function startApp() {
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('topbar').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'flex';
+  document.getElementById('userDisplay').textContent = userName;
+  updateSyncBadge();
+  renderAll();
+}
+
+// ══════════════════════════════════════════
+// AUTO-RECONNECT
+// ══════════════════════════════════════════
+function tryAutoConnect() {
+  const config = localStorage.getItem('swipers_fb_config');
+  const name = localStorage.getItem('swipers_username');
+  if (config && name) {
+    try {
+      const parsed = JSON.parse(config);
+      firebase.initializeApp(parsed);
+      db = firebase.database();
+      userName = name;
+      startApp();
+      setupRealtimeListeners();
+      return true;
+    } catch(e) {}
+  }
+  return false;
+}
+
+// ══════════════════════════════════════════
+// EXPORT / IMPORT
+// ══════════════════════════════════════════
+function exportData() {
+  const data = { version:2, exportDate:new Date().toISOString(), tasks, deps, exportedBy:userName };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url;
+  a.download=`swipers_tracker_${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.tasks) tasks = data.tasks;
+      if (data.deps) deps = data.deps;
+      if (db) { pushAllToFirebase(); logActivity('imported data snapshot'); }
+      else saveLocal();
+      renderAll();
+    } catch(err) { alert('Invalid JSON'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function changeUserName() {
+  const n = prompt('Enter your name:', userName);
+  if (n && n.trim()) {
+    userName = n.trim();
+    localStorage.setItem('swipers_username', userName);
+    document.getElementById('userDisplay').textContent = userName;
+  }
+}
+
+// ══════════════════════════════════════════
+// ACTIVITY TOAST
+// ══════════════════════════════════════════
+function showToast(user, action) {
+  const feed = document.getElementById('activityFeed');
+  const toast = document.createElement('div');
+  toast.className = 'activity-toast';
+  toast.innerHTML = `<span class="toast-user">${user}</span> ${action}`;
+  feed.appendChild(toast);
+  setTimeout(() => toast.remove(), 4500);
+}
+
+// ══════════════════════════════════════════
+// STATS
+// ══════════════════════════════════════════
+function updateStats() {
+  const c={done:0,wip:0,blocked:0,todo:0};
+  tasks.forEach(t => c[t.status]=(c[t.status]||0)+1);
+  document.getElementById('statDone').textContent=c.done;
+  document.getElementById('statWip').textContent=c.wip;
+  document.getElementById('statBlocked').textContent=c.blocked;
+  document.getElementById('statTodo').textContent=c.todo;
+}
+
+// ══════════════════════════════════════════
+// GRAPH
+// ══════════════════════════════════════════
+const COL_W=195,COL_GAP=55,NODE_H=50,NODE_GAP=8,PAD_T=48,PAD_L=24;
+let taskPos={}, taskEls={};
+
+function renderGraph() {
+  const vp=document.getElementById('graphViewport'); vp.innerHTML='';
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.classList.add('arrows'); svg.id='arrowsSvg';
+  svg.innerHTML=`<defs><marker id="ah" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5 Z" fill="#334155"/></marker><marker id="ah-c" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5 Z" fill="#ef4444"/></marker><marker id="ah-h" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5 Z" fill="#3b82f6"/></marker></defs>`;
+  vp.appendChild(svg);
+  const byS={}; tasks.forEach(t=>{if(!byS[t.sprint])byS[t.sprint]=[];byS[t.sprint].push(t);});
+  let maxY=0;
+  SPRINTS.forEach((sp,ci)=>{
+    const x=PAD_L+ci*(COL_W+COL_GAP), ts=byS[sp.num]||[];
+    const band=document.createElement('div'); band.className='phase-band';
+    band.style.cssText=`left:${x-8}px;width:${COL_W+16}px;background:${PHASE_COLORS[sp.phase]}`;
+    vp.appendChild(band);
+    const col=document.createElement('div'); col.className='sprint-column';
+    col.style.cssText=`left:${x}px;top:${PAD_T}px;width:${COL_W}px`;
+    const lbl=document.createElement('div'); lbl.className='sprint-label';
+    lbl.style.cssText=`background:${PHASE_COLORS[sp.phase]}22;color:${PHASE_COLORS[sp.phase]};border-left:3px solid ${PHASE_COLORS[sp.phase]}`;
+    lbl.textContent=`${sp.label}: ${sp.title}`; col.appendChild(lbl);
+    const dt=document.createElement('div'); dt.className='sprint-dates'; dt.textContent=sp.dates; col.appendChild(dt);
+    let yOff=44;
+    ts.forEach(task=>{
+      const node=document.createElement('div'); node.className='task-node'; node.dataset.id=task.id;
+      const bar=document.createElement('div'); bar.className='priority-bar';
+      bar.style.background=task.priority==='must'?'var(--must)':'var(--should)'; node.appendChild(bar);
+      if(task.status!=='todo'){ const si=document.createElement('div'); si.className='status-icon';
+        si.style.background=STATUS_COLORS[task.status]; si.textContent=STATUS_ICONS[task.status]; node.appendChild(si); }
+      const title=document.createElement('div'); title.className='task-title';
+      const dot=document.createElement('span'); dot.className='owner-dot'; dot.style.background=OWNER_COLORS[task.owner];
+      title.appendChild(dot); title.appendChild(document.createTextNode(task.title));
+      if(task.status==='done') title.style.cssText='text-decoration:line-through;opacity:0.5';
+      node.appendChild(title);
+      const meta=document.createElement('div'); meta.className='task-meta';
+      meta.textContent=`${OWNER_LABELS[task.owner]} · ${task.status.toUpperCase()}`; node.appendChild(meta);
+      col.appendChild(node);
+      const ny=PAD_T+yOff;
+      taskPos[task.id]={x,y:ny,cx:x+COL_W/2,cy:ny+NODE_H/2,right:x+COL_W,left:x};
+      taskEls[task.id]=node; yOff+=NODE_H+NODE_GAP;
+    });
+    if(PAD_T+yOff>maxY)maxY=PAD_T+yOff;
+    band.style.top=(PAD_T-8)+'px'; band.style.height=(yOff+16)+'px'; vp.appendChild(col);
+  });
+  const totalW=PAD_L+SPRINTS.length*(COL_W+COL_GAP)+40;
+  vp.style.width=totalW+'px'; vp.style.height=(maxY+40)+'px';
+  svg.setAttribute('width',totalW); svg.setAttribute('height',maxY+40);
+  deps.forEach(([from,to,crit])=>{
+    const fp=taskPos[from],tp=taskPos[to]; if(!fp||!tp)return;
+    const cp=Math.max(Math.abs(tp.left-fp.right)*0.4,25);
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',`M${fp.right},${fp.cy} C${fp.right+cp},${fp.cy} ${tp.left-cp},${tp.cy} ${tp.left},${tp.cy}`);
+    path.setAttribute('marker-end',crit?'url(#ah-c)':'url(#ah)');
+    if(crit) path.classList.add('critical'); path.dataset.from=from; path.dataset.to=to; svg.appendChild(path);
+  });
+}
+
+function highlightGraphDeps(taskId){
+  const up=new Set(),down=new Set();
+  function fU(id){deps.forEach(([f,t])=>{if(t===id&&!up.has(f)){up.add(f);fU(f);}});}
+  function fD(id){deps.forEach(([f,t])=>{if(f===id&&!down.has(t)){down.add(t);fD(t);}});}
+  fU(taskId);fD(taskId); const conn=new Set([taskId,...up,...down]);
+  Object.entries(taskEls).forEach(([id,el])=>{el.classList.toggle('dimmed',!conn.has(id));el.classList.toggle('selected',id===taskId);});
+  document.querySelectorAll('#arrowsSvg path[data-from]').forEach(p=>{
+    const f=p.dataset.from,t=p.dataset.to;
+    const isC=(conn.has(f)&&conn.has(t))&&(up.has(f)||f===taskId||down.has(f));
+    p.classList.toggle('highlight',isC);
+    if(isC){const isUp=up.has(f)&&(t===taskId||up.has(t));p.style.stroke=isUp?'#3b82f6':'#ef4444';p.setAttribute('marker-end',isUp?'url(#ah-h)':'url(#ah-c)');}
+    else{p.style.stroke='';}
+  });
+}
+function clearGraphHighlight(){
+  Object.values(taskEls).forEach(el=>el.classList.remove('dimmed','selected'));
+  document.querySelectorAll('#arrowsSvg path[data-from]').forEach(p=>{p.classList.remove('highlight');p.style.stroke='';p.setAttribute('marker-end',p.classList.contains('critical')?'url(#ah-c)':'url(#ah)');});
+}
+
+// Pan/zoom
+let scale=0.82,panX=0,panY=0,isDrag=false,dsx,dsy;
+const gp=document.getElementById('graphPanel');
+function updateTransform(){document.getElementById('graphViewport').style.transform=`translate(${panX}px,${panY}px) scale(${scale})`;}
+gp.addEventListener('mousedown',e=>{if(e.target.closest('.task-node'))return;isDrag=true;dsx=e.clientX-panX;dsy=e.clientY-panY;gp.classList.add('dragging');});
+window.addEventListener('mousemove',e=>{if(!isDrag)return;panX=e.clientX-dsx;panY=e.clientY-dsy;updateTransform();});
+window.addEventListener('mouseup',()=>{isDrag=false;gp.classList.remove('dragging');});
+gp.addEventListener('wheel',e=>{e.preventDefault();const d=e.deltaY>0?0.92:1.08,ns=Math.max(0.2,Math.min(2.5,scale*d));const r=gp.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;panX=mx-(mx-panX)*(ns/scale);panY=my-(my-panY)*(ns/scale);scale=ns;updateTransform();},{passive:false});
+
+// Graph click
+gp.addEventListener('click',e=>{
+  const node=e.target.closest('.task-node');
+  if(node){if(e.detail===2){openEditPanel(node.dataset.id);return;}
+    if(selectedTaskId===node.dataset.id){selectedTaskId=null;clearGraphHighlight();}
+    else{selectedTaskId=node.dataset.id;highlightGraphDeps(node.dataset.id);}
+  }else{selectedTaskId=null;clearGraphHighlight();}
+});
+
+// Graph tooltip
+const tooltip=document.getElementById('tooltip');
+gp.addEventListener('mousemove',e=>{
+  const node=e.target.closest('.task-node');
+  if(node){const t=tasks.find(x=>x.id===node.dataset.id);if(!t)return;
+    document.getElementById('ttTitle').textContent=t.title;
+    document.getElementById('ttDetail').textContent=t.detail;
+    document.getElementById('ttStatus').innerHTML=`<span style="color:${STATUS_COLORS[t.status]}">${t.status.toUpperCase()}</span> · Double-click to edit`;
+    tooltip.classList.add('visible');
+    let x=e.clientX+14,y=e.clientY-8;const r=tooltip.getBoundingClientRect();
+    if(x+r.width>window.innerWidth-16)x=e.clientX-r.width-14;
+    if(y+r.height>window.innerHeight-16)y=window.innerHeight-r.height-16;
+    tooltip.style.left=x+'px';tooltip.style.top=y+'px';
+  }else tooltip.classList.remove('visible');
+});
+gp.addEventListener('mouseleave',()=>tooltip.classList.remove('visible'));
+
+// ══════════════════════════════════════════
+// LIST
+// ══════════════════════════════════════════
+function renderList(){
+  const scroll=document.getElementById('listScroll'); scroll.innerHTML='';
+  const search=(document.getElementById('searchInput')?.value||'').toLowerCase();
+  const byS={}; tasks.forEach(t=>{if(!byS[t.sprint])byS[t.sprint]=[];byS[t.sprint].push(t);});
+  SPRINTS.forEach(sp=>{
+    let items=(byS[sp.num]||[]).filter(t=>{
+      if(filterStatus!=='all'&&t.status!==filterStatus)return false;
+      if(filterOwner!=='all'&&t.owner!==filterOwner)return false;
+      if(search&&!t.title.toLowerCase().includes(search)&&!t.detail.toLowerCase().includes(search))return false;
+      return true;
+    }); if(!items.length) return;
+    const all=byS[sp.num]||[], doneC=all.filter(t=>t.status==='done').length;
+    const hdr=document.createElement('div'); hdr.className='list-sprint-header';
+    hdr.innerHTML=`<div class="sprint-dot" style="background:${PHASE_COLORS[sp.phase]}"></div>${sp.label}: ${sp.title}<span style="color:var(--text-muted);font-weight:400;font-size:10px;margin-left:6px">${sp.dates}</span><span class="sprint-progress">${doneC}/${all.length}</span>`;
+    scroll.appendChild(hdr);
+    items.forEach(t=>{
+      const row=document.createElement('div'); row.className='list-item'+(selectedTaskId===t.id?' selected':''); row.dataset.id=t.id;
+      const sb=document.createElement('button'); sb.className='status-select';
+      sb.style.borderColor=STATUS_COLORS[t.status]; sb.style.color=STATUS_COLORS[t.status];
+      sb.textContent=STATUS_ICONS[t.status]; sb.title='Click to cycle status';
+      sb.onclick=(e)=>{e.stopPropagation();cycleStatus(t.id);};row.appendChild(sb);
+      const ti=document.createElement('div'); ti.className='item-title';
+      ti.innerHTML=`<span class="owner-dot" style="background:${OWNER_COLORS[t.owner]}"></span><span style="${t.status==='done'?'text-decoration:line-through;opacity:0.5':''}">${t.title}</span>`;
+      row.appendChild(ti);
+      const ow=document.createElement('div');ow.className='item-owner';ow.textContent=OWNER_LABELS[t.owner];row.appendChild(ow);
+      const pr=document.createElement('div');pr.className='item-priority';pr.style.color=t.priority==='must'?'var(--must)':'var(--should)';pr.textContent=t.priority.toUpperCase();row.appendChild(pr);
+      const bc=deps.filter(([f,to])=>to===t.id).length, dc=deps.filter(([f,to])=>f===t.id).length;
+      const bl=document.createElement('div');bl.className='item-blockers';bl.innerHTML=`↑${bc} ↓${dc}`;row.appendChild(bl);
+      const ex=document.createElement('button');ex.className='item-expand';ex.textContent='⋯';ex.onclick=(e)=>{e.stopPropagation();openEditPanel(t.id);};row.appendChild(ex);
+      row.onclick=()=>{selectedTaskId=t.id;renderList();};
+      scroll.appendChild(row);
+      // Inline detail
+      const det=document.createElement('div'); det.className='list-item-detail'+(selectedTaskId===t.id?' open':'');
+      let dH=`<div style="margin-bottom:6px">${t.detail}</div>`;
+      const bBy=deps.filter(([f,to])=>to===t.id), bks=deps.filter(([f,to])=>f===t.id);
+      if(bBy.length){dH+=`<div class="dep-section"><div class="dep-label">Blocked by</div>`;bBy.forEach(([f,,cr])=>{const ft=tasks.find(x=>x.id===f);if(ft)dH+=`<span class="dep-tag upstream" onclick="event.stopPropagation();selectedTaskId='${f}';renderList();">${ft.title}${cr?' ⚡':''}</span>`;});dH+=`</div>`;}
+      if(bks.length){dH+=`<div class="dep-section"><div class="dep-label">Blocks</div>`;bks.forEach(([,to,cr])=>{const tt=tasks.find(x=>x.id===to);if(tt)dH+=`<span class="dep-tag downstream" onclick="event.stopPropagation();selectedTaskId='${to}';renderList();">${tt.title}${cr?' ⚡':''}</span>`;});dH+=`</div>`;}
+      det.innerHTML=dH; scroll.appendChild(det);
+    });
+  });
+}
+
+function cycleStatus(id){
+  const t=tasks.find(x=>x.id===id); if(!t)return;
+  const order=['todo','wip','done','blocked'];
+  t.status=order[(order.indexOf(t.status)+1)%order.length];
+  pushTaskUpdate(t, `set "${t.title}" → ${t.status.toUpperCase()}`);
+  renderAll();
+}
+
+// ══════════════════════════════════════════
+// EDIT PANEL
+// ══════════════════════════════════════════
+function openEditPanel(taskId){
+  selectedTaskId=taskId;
+  const t=tasks.find(x=>x.id===taskId); if(!t)return;
+  document.getElementById('editTitle').textContent=t.title;
+  const c=document.getElementById('editContent');
+  const bBy=deps.filter(([f,to])=>to===taskId), bks=deps.filter(([f,to])=>f===taskId);
+  let h=`<div class="field-group"><div class="field-label">Status</div><div class="status-radio-group">
+    ${['todo','wip','blocked','done'].map(s=>`<button class="status-radio ${t.status===s?'active':''}" data-status="${s}" onclick="setField('${taskId}','status','${s}')">${s}</button>`).join('')}
+  </div></div>
+  <div class="field-group"><div class="field-label">Title</div><input class="field-value" value="${t.title.replace(/"/g,'&quot;')}" onchange="setField('${taskId}','title',this.value)"></div>
+  <div class="field-group"><div class="field-label">Owner</div><select class="field-value" onchange="setField('${taskId}','owner',this.value)">
+    ${Object.entries(OWNER_LABELS).map(([k,v])=>`<option value="${k}" ${t.owner===k?'selected':''}>${v}</option>`).join('')}</select></div>
+  <div class="field-group"><div class="field-label">Priority</div><select class="field-value" onchange="setField('${taskId}','priority',this.value)">
+    <option value="must" ${t.priority==='must'?'selected':''}>MUST</option><option value="should" ${t.priority==='should'?'selected':''}>SHOULD</option></select></div>
+  <div class="field-group"><div class="field-label">Sprint</div><select class="field-value" onchange="setField('${taskId}','sprint',parseFloat(this.value))">
+    ${SPRINTS.map(s=>`<option value="${s.num}" ${t.sprint===s.num?'selected':''}>${s.label}: ${s.title}</option>`).join('')}</select></div>
+  <div class="field-group"><div class="field-label">Detail / Notes</div><textarea class="field-value" onchange="setField('${taskId}','detail',this.value)">${t.detail}</textarea></div>
+  <div class="field-group"><div class="field-label">Blocked By</div><div class="dep-list-edit">
+    ${bBy.map(([f,,cr])=>{const ft=tasks.find(x=>x.id===f);return ft?`<div class="dep-row"><div class="dep-name" style="color:${OWNER_COLORS[ft.owner]}">${ft.title}</div><label style="font-size:10px;color:var(--text-dim);display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" ${cr?'checked':''} onchange="toggleCrit('${f}','${taskId}',this.checked)"> ⚡</label><button class="remove-dep" onclick="remDep('${f}','${taskId}')">×</button></div>`:'';}).join('')}
+  </div><div class="add-dep-row"><select id="addUp"><option value="">+ Add blocker...</option>
+    ${tasks.filter(x=>x.id!==taskId&&!bBy.some(([f])=>f===x.id)).map(x=>`<option value="${x.id}">[${SPRINTS.find(s=>s.num===x.sprint)?.label}] ${x.title}</option>`).join('')}
+  </select><button class="btn" onclick="addDep(document.getElementById('addUp').value,'${taskId}')">Add</button></div></div>
+  <div class="field-group"><div class="field-label">Blocks</div><div class="dep-list-edit">
+    ${bks.map(([,to,cr])=>{const tt=tasks.find(x=>x.id===to);return tt?`<div class="dep-row"><div class="dep-name" style="color:${OWNER_COLORS[tt.owner]}">${tt.title}</div><label style="font-size:10px;color:var(--text-dim);display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" ${cr?'checked':''} onchange="toggleCrit('${taskId}','${to}',this.checked)"> ⚡</label><button class="remove-dep" onclick="remDep('${taskId}','${to}')">×</button></div>`:'';}).join('')}
+  </div><div class="add-dep-row"><select id="addDn"><option value="">+ Add downstream...</option>
+    ${tasks.filter(x=>x.id!==taskId&&!bks.some(([,t])=>t===x.id)).map(x=>`<option value="${x.id}">[${SPRINTS.find(s=>s.num===x.sprint)?.label}] ${x.title}</option>`).join('')}
+  </select><button class="btn" onclick="addDep('${taskId}',document.getElementById('addDn').value)">Add</button></div></div>
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px">
+    <button class="btn danger" onclick="if(confirm('Delete this task?'))delTask('${taskId}')">Delete Task</button></div>`;
+  c.innerHTML=h;
+  document.getElementById('editOverlay').classList.add('open');
+  document.getElementById('editPanel').classList.add('open');
+}
+
+function closeEditPanel(){
+  document.getElementById('editOverlay').classList.remove('open');
+  document.getElementById('editPanel').classList.remove('open');
+}
+
+function setField(id,field,val){
+  const t=tasks.find(x=>x.id===id); if(!t)return;
+  t[field]=val;
+  pushTaskUpdate(t, `set "${t.title}" ${field} → ${val}`);
+  if(field==='status') document.querySelectorAll('.status-radio').forEach(b=>b.classList.toggle('active',b.dataset.status===val));
+  renderAll();
+}
+
+function addDep(from,to){
+  if(!from||!to||from===to)return;
+  if(deps.some(([f,t])=>f===from&&t===to))return;
+  deps.push([from,to,false]);
+  pushDepsUpdate(); logActivity(`added dependency`);
+  renderAll(); openEditPanel(selectedTaskId||to);
+}
+
+function remDep(from,to){
+  deps=deps.filter(([f,t])=>!(f===from&&t===to));
+  pushDepsUpdate(); logActivity(`removed dependency`);
+  renderAll(); openEditPanel(selectedTaskId||to);
+}
+
+function toggleCrit(from,to,val){
+  const d=deps.find(([f,t])=>f===from&&t===to); if(d)d[2]=val;
+  pushDepsUpdate(); renderGraph();
+}
+
+function delTask(id){
+  const t=tasks.find(x=>x.id===id);
+  tasks=tasks.filter(x=>x.id!==id);
+  deps=deps.filter(([f,t])=>f!==id&&t!==id);
+  pushTaskDelete(id);
+  logActivity(`deleted "${t?.title}"`);
+  closeEditPanel(); selectedTaskId=null; renderAll();
+}
+
+// ══════════════════════════════════════════
+// TABS / FILTERS
+// ══════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); currentTab=btn.dataset.tab;
+    document.getElementById('graphPanel').classList.toggle('active',currentTab==='graph');
+    document.getElementById('graphPanel').style.display=currentTab==='graph'?'block':'none';
+    document.getElementById('listPanel').classList.toggle('active',currentTab==='list');
+  });
+});
+document.querySelectorAll('[data-filter-status]').forEach(btn=>{
+  btn.addEventListener('click',()=>{document.querySelectorAll('[data-filter-status]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');filterStatus=btn.dataset.filterStatus;renderList();});
+});
+document.querySelectorAll('[data-filter-owner]').forEach(btn=>{
+  btn.addEventListener('click',()=>{document.querySelectorAll('[data-filter-owner]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');filterOwner=btn.dataset.filterOwner;renderList();});
+});
+
+// ══════════════════════════════════════════
+// RENDER ALL
+// ══════════════════════════════════════════
+function renderAll(){taskPos={};taskEls={};renderGraph();renderList();updateStats();updateTransform();}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+if (!tryAutoConnect()) {
+  // Show setup screen
+  const savedName = localStorage.getItem('swipers_username');
+  if (savedName) document.getElementById('userNameInput').value = savedName;
+}
+</script>
+</body>
+</html>
