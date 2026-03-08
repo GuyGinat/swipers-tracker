@@ -407,6 +407,7 @@
     <button class="btn primary" onclick="openNewTaskPanel()">+ New Task</button>
     <button class="btn" onclick="exportData()">Export</button>
     <button class="btn" onclick="document.getElementById('importInput').click()">Import</button>
+    <button class="btn danger" onclick="resetToDefaults()">Reset</button>
     <input type="file" id="importInput" accept=".json" onchange="importData(event)">
   </div>
 </div>
@@ -433,6 +434,7 @@
         <button class="filter-btn" data-filter-owner="techart">Tech Art</button>
         <button class="filter-btn" data-filter-owner="art">Art/3D</button>
         <button class="filter-btn" data-filter-owner="team">Team</button>
+        <button class="filter-btn" data-filter-owner="marketing">Marketing</button>
       </div>
       <input class="search-input" type="text" placeholder="Search tasks..." id="searchInput" oninput="renderList()">
       <button class="btn primary" onclick="openNewTaskPanel()" style="margin-left:auto">+ New Task</button>
@@ -463,116 +465,294 @@
 // ══════════════════════════════════════════
 // INITIAL DATA
 // ══════════════════════════════════════════
+const DATA_VERSION = 'v3_merged_marketing';
+
 const INITIAL_TASKS = [
-  {id:"s0_arch",sprint:0,title:"Project Architecture",owner:"team",priority:"must",detail:"Unity/Fusion version lock, Git strategy, NetworkRunner bootstrap, seed distribution",status:"todo"},
-  {id:"s0_procgen",sprint:0,title:"Procedural Level Gen V1",owner:"dev1",priority:"must",detail:"Tile/room generation from seed, deterministic across all clients, 8-12 rooms",status:"todo"},
-  {id:"s0_movement",sprint:0,title:"Networked Swiper Movement",owner:"dev2",priority:"must",detail:"Floorborb controller, client prediction, interpolation for remotes",status:"todo"},
-  {id:"s0_artpipe",sprint:0,title:"Art Pipeline Setup",owner:"art",priority:"must",detail:"Style guide, modular kit dimensions, shader library, lighting rig, first kit pieces",status:"todo"},
-  {id:"s0_tools",sprint:0,title:"Sprint Planning & Tooling",owner:"team",priority:"must",detail:"Project board, playtest schedule, Discord server",status:"todo"},
-  {id:"s1_grab",sprint:1,title:"Grab System (Mop Hand)",owner:"dev2",priority:"must",detail:"Dual-point ConfigurableJoint, Perlin wobble, Forecast Physics sync",status:"todo"},
-  {id:"s1_loot",sprint:1,title:"Loot & Vacuum System",owner:"dev1",priority:"must",detail:"Loot spawning, vacuum suction trigger, CurrentHaul tracking, aquarium state",status:"todo"},
-  {id:"s1_mic",sprint:1,title:"MIC Blueprint Interface",owner:"dev1",priority:"must",detail:"2D map from procgen data, Swiper dots + vision cones at 30Hz, threshold bar",status:"todo"},
-  {id:"s1_envart",sprint:1,title:"Environment Kit Assembly",owner:"art",priority:"must",detail:"Modular walls/floors/doors/vents + 8-10 junk props",status:"todo"},
-  {id:"s1_techart",sprint:1,title:"Visual Foundation",owner:"techart",priority:"must",detail:"Highlight shader, assembly tool, post-processing stack",status:"todo"},
-  {id:"s2_guard",sprint:2,title:"Guard AI — Full FSM",owner:"dev2",priority:"must",detail:"5-state: Patrol→Suspicious→Chase→Attack→Ragdoll, vision cones, noise detection",status:"todo"},
-  {id:"s2_manual",sprint:2,title:"Deactivation Matrix + Manual",owner:"dev1",priority:"must",detail:"Procedural trait-to-code matrix, MIC manual UI, code input, wrong code penalty",status:"todo"},
-  {id:"s2_door",sprint:2,title:"Door Breaching Module × 1",owner:"dev1",priority:"must",detail:"Microverse camera shift, procedural puzzle state, Bypass Codex rules",status:"todo"},
-  {id:"s2_timer",sprint:2,title:"Timer System (Shared Health)",owner:"dev2",priority:"must",detail:"Server-authoritative countdown, penalty queue, visual escalation, arrest state",status:"todo"},
-  {id:"s2_bull",sprint:2,title:"Bull in a China Shop V1",owner:"dev2",priority:"must",detail:"Clutter spawner, CCD on held items, sound ping → guard alert",status:"todo"},
-  {id:"s2_vsart",sprint:2,title:"Vertical Slice Art Polish",owner:"art",priority:"must",detail:"Final lighting, guard model, Floorborb model, aquarium VFX, vacuum model",status:"todo"},
-  {id:"s2_playtest",sprint:2,title:"VS Playtest & Bugfix",owner:"team",priority:"must",detail:"2 days 4-player testing, priority bug fixes, record footage",status:"todo"},
-  {id:"s3_voice",sprint:3,title:"Voice Chat Integration",owner:"dev1",priority:"must",detail:"Photon Voice 2, proximity spatial + radio PTT, wall occlusion, swallowed distortion",status:"todo"},
-  {id:"s3_sabotage",sprint:3,title:"Sabotage / Needy Modules",owner:"dev2",priority:"must",detail:"Random trigger engine, Alarm Override, Blackout, Oxygen Depletion",status:"todo"},
-  {id:"s3_envfx",sprint:3,title:"Sabotage Environment FX",owner:"techart",priority:"must",detail:"Blackout lighting toggle, NVG shader, sprinkler particles + friction",status:"todo"},
-  {id:"s3_verbal",sprint:3,title:"Guard Verbal Loop Polish",owner:"dev1",priority:"should",detail:"Visual/auditory trait randomization, MIC matrix UI polish",status:"todo"},
-  {id:"s3_guard2",sprint:3,title:"2nd Guard Species",owner:"art",priority:"should",detail:"New silhouette, behavioral variant (blind+hearing), matrix entry",status:"todo"},
-  {id:"s4_doors",sprint:4,title:"Door Modules × 2 More",owner:"dev1",priority:"must",detail:"Color-matching variant + timed pressure variant, new Codex pages",status:"todo"},
-  {id:"s4_summary",sprint:4,title:"Heist Summary Screen",owner:"dev2",priority:"must",detail:"Gross Haul tally, XP bar, bail deductions, mugshot system, save to JSON",status:"todo"},
-  {id:"s4_lobby",sprint:4,title:"Basic Lobby (Demo)",owner:"dev1",priority:"must",detail:"Ship spawn, role selection, ready-up, room codes, solo fallback stub",status:"todo"},
-  {id:"s4_gadgets",sprint:4,title:"Gadgets: Shrink + Gravity",owner:"dev2",priority:"should",detail:"Shrink Gun (0.5x scale), Gravity Gun (invert gravity), Omni-Cell economy",status:"todo"},
-  {id:"s4_demoart",sprint:4,title:"Demo Level Art Polish",owner:"art",priority:"must",detail:"Hero props, 15-20 junk objects, environmental storytelling pieces",status:"todo"},
-  {id:"s4_audio",sprint:4,title:"Audio First Pass",owner:"techart",priority:"should",detail:"Placeholder SFX, 1 ambient + 1 tension track, spatial audio curves",status:"todo"},
-  {id:"s5_nettest",sprint:5,title:"Network Stress Test & Fix",owner:"dev1",priority:"must",detail:"20+ sessions, latency sim, AoI tuning, object pooling",status:"todo"},
-  {id:"s5_solo",sprint:5,title:"Solo Play Fallback",owner:"dev1",priority:"must",detail:"Auto-MIC or bot MIC for solo demo players",status:"todo"},
-  {id:"s5_settings",sprint:5,title:"Settings Menu",owner:"dev2",priority:"must",detail:"Resolution, audio sliders, key rebinding, controller prompts",status:"todo"},
-  {id:"s5_steam",sprint:5,title:"Steam Page + Steamworks",owner:"dev1",priority:"must",detail:"Coming Soon page, capsule art, tags, Auto-Cloud, Rich Presence",status:"todo"},
-  {id:"s5_demofeat",sprint:5,title:"Demo-Specific Features",owner:"dev2",priority:"must",detail:"Wishlist CTA, locked feature labels, session cap, analytics",status:"todo"},
-  {id:"s5_vispol",sprint:5,title:"Visual Polish Pass",owner:"techart",priority:"must",detail:"Final lighting, UI polish, VFX pass, trailer capture",status:"todo"},
-  {id:"s55_submit",sprint:5.5,title:"Demo Build & Valve Submit",owner:"dev1",priority:"must",detail:"Strip debug, crash reporting, upload Steamworks, hotfix pipeline",status:"todo"},
-  {id:"s55_marketing",sprint:5.5,title:"Marketing Sprint",owner:"art",priority:"must",detail:"Trailer, press kit, content creator outreach, TikTok clips",status:"todo"},
-  {id:"s55_nextprep",sprint:5.5,title:"Next Fest Preparation",owner:"team",priority:"must",detail:"Livestream schedule, Discord setup, monitoring shifts",status:"todo"},
-  {id:"s6_liveops",sprint:6,title:"Live Ops (Next Fest)",owner:"team",priority:"must",detail:"Monitor crashes, hotfix <4hr, community engagement",status:"todo"},
-  {id:"s6_data",sprint:6,title:"Post-Fest Data Analysis",owner:"dev1",priority:"must",detail:"Analytics, feedback categorization, MoSCoW backlog",status:"todo"},
-  {id:"s6_save",sprint:6,title:"Save System Architecture",owner:"dev2",priority:"should",detail:"Crew profile, JSON versioning, atomic writes, Steam Cloud",status:"todo"},
-  {id:"s7_levels",sprint:7,title:"2 Additional Tilesets",owner:"art",priority:"must",detail:"2 new environments with kit pieces, props, sealed artifacts",status:"todo"},
-  {id:"s7_economy",sprint:7,title:"Economy System Full Loop",owner:"dev2",priority:"must",detail:"Transaction ledger, XP accumulator, bail calc, currency",status:"todo"},
-  {id:"s7_shop",sprint:7,title:"Shop (Simplified)",owner:"dev2",priority:"must",detail:"Gadget Emporium, Essentials, rotating stock timer",status:"todo"},
-  {id:"s7_galaxy",sprint:7,title:"Galactic Navigation",owner:"dev1",priority:"must",detail:"Ship bridge map, fuel gauge, travel check, planet select",status:"todo"},
-  {id:"s7_guard3",sprint:7,title:"3rd Guard Species",owner:"art",priority:"should",detail:"New behavioral variant, per-planet, difficulty scaling",status:"todo"},
-  {id:"s8_lobbyf",sprint:8,title:"Lobby Full Version",owner:"dev1",priority:"must",detail:"Hall of Fame/Shame, customization, role assignment, intel",status:"todo"},
-  {id:"s8_trophy",sprint:8,title:"Trophy System",owner:"dev2",priority:"must",detail:"Trophy display, LOD, inspection, mugshot capture",status:"todo"},
-  {id:"s8_steamfeat",sprint:8,title:"Steamworks Features",owner:"dev1",priority:"must",detail:"Achievements, Cloud Saves, Steam Input, matchmaking",status:"todo"},
-  {id:"s8_gadgets2",sprint:8,title:"Gadgets: Texture + Freeze",owner:"dev2",priority:"should",detail:"Texture Gun, Freeze Ray, Omni-Cell costs",status:"todo"},
-  {id:"s8_tutorial",sprint:8,title:"Tutorial / Onboarding",owner:"dev1",priority:"must",detail:"Guided first heist, tooltips, MIC tutorial, skippable",status:"todo"},
-  {id:"s8_finalart",sprint:8,title:"Final Art Assets",owner:"art",priority:"must",detail:"3 sealed artifacts, ship lobby, guards, UI art pass",status:"todo"},
-  {id:"s9_perf",sprint:9,title:"Performance Optimization",owner:"dev1",priority:"must",detail:"Profiling, LODs, pooling, bandwidth, 60FPS GTX1060",status:"todo"},
-  {id:"s9_balance",sprint:9,title:"Balance Pass",owner:"dev2",priority:"must",detail:"Timer/penalty tuning, guards, loot, economy",status:"todo"},
-  {id:"s9_bugs",sprint:9,title:"Bug Fixing Sprint",owner:"team",priority:"must",detail:"P0/P1 clear, networking edge cases, regression",status:"todo"},
-  {id:"s9_audiof",sprint:9,title:"Audio Final Pass",owner:"techart",priority:"should",detail:"Final SFX, music, spatial tuning, guard sounds",status:"todo"},
-  {id:"s9_a11y",sprint:9,title:"Accessibility Features",owner:"dev2",priority:"should",detail:"Subtitles, colorblind, hold/toggle, UI scaling",status:"todo"},
-  {id:"s10_rc",sprint:10,title:"Release Candidate Build",owner:"team",priority:"must",detail:"Final build, playthrough, Steam Deck, upload",status:"todo"},
-  {id:"s10_iarc",sprint:10,title:"IARC & Pricing",owner:"dev1",priority:"must",detail:"Age rating, pricing, launch discount, store final",status:"todo"},
-  {id:"s10_press",sprint:10,title:"Press & Streamer Keys",owner:"art",priority:"must",detail:"Keys 1-2 weeks pre-launch, warm leads from Fest",status:"todo"},
-  {id:"s10_launch",sprint:10,title:"Launch Day Ops Plan",owner:"team",priority:"must",detail:"CCU check, standby, hotfix pipeline, 10 reviews",status:"todo"},
-  {id:"s10_roadmap",sprint:10,title:"Post-Launch Roadmap",owner:"team",priority:"should",detail:"2 more planets, cosmetics, bargain bin",status:"todo"},
+  // ══ S0: Foundation + Physics Feel (MERGED — current sprint) ══
+  {id:"s0_arch",sprint:0,title:"Project Architecture",owner:"team",priority:"must",detail:"Unity/Fusion version lock, Git strategy, NetworkRunner bootstrap, seed distribution",status:"done"},
+  {id:"s0_procgen",sprint:0,title:"Procedural Level Gen V1",owner:"dev1",priority:"must",detail:"Tile/room generation from seed, deterministic across all clients. DONE.",status:"done"},
+  {id:"s0_movement",sprint:0,title:"Networked Swiper Movement",owner:"dev2",priority:"must",detail:"Floorborb controller, client prediction, interpolation. Networked but rough — polish in progress.",status:"wip"},
+  {id:"s0_voicechat",sprint:0,title:"Voice Chat (Proximity + Radio)",owner:"dev1",priority:"must",detail:"Proximity spatial + MIC radio PTT. Mostly working, needs polish pass for quirks.",status:"wip"},
+  {id:"s0_loot_spawn",sprint:0,title:"Loot Spawning (Basic)",owner:"dev1",priority:"must",detail:"Loot items spawn in generated rooms with values. Exists as rough prototype.",status:"wip"},
+  {id:"s0_mic_blueprint",sprint:0,title:"MIC Blueprint (Basic)",owner:"dev1",priority:"must",detail:"2D top-down map from procgen data. Rough prototype exists.",status:"wip"},
+  {id:"s0_timer_basic",sprint:0,title:"Timer / Countdown (Basic)",owner:"dev2",priority:"must",detail:"Basic countdown timer exists. Needs penalty system and visual escalation.",status:"wip"},
+  {id:"s0_guard_patrol",sprint:0,title:"Guard AI — Patrol Only",owner:"dev2",priority:"must",detail:"Placeholder guard walks a path. No detection, no state machine yet.",status:"wip"},
+  {id:"s0_lobby",sprint:0,title:"Lobby + Role Selection",owner:"dev1",priority:"must",detail:"Players can host/join sessions. MIC assigned randomly among 3 players.",status:"done"},
+  {id:"s0_artpipe",sprint:0,title:"Art Pipeline Setup",owner:"art",priority:"must",detail:"Style guide, modular kit dimensions, shader library, lighting rig",status:"todo"},
+  {id:"s0_grab_rework",sprint:0,title:"Grab Rework → ConfigurableJoint",owner:"dev2",priority:"must",detail:"Replace pull-to-transform with ConfigurableJoint tether. Active collisions — held object hits wall = player drag/slowdown. Tune spring/damper for mop-hand feel.",status:"todo"},
+  {id:"s0_wobble",sprint:0,title:"Procedural Wobble System",owner:"dev2",priority:"must",detail:"Perlin noise on joint target. 10% radius rule. Weight → amplitude. Sprint/jump doubles intensity.",status:"todo"},
+  {id:"s0_grab_net",sprint:0,title:"Grab Network Sync",owner:"dev2",priority:"must",detail:"Fusion Forecast Physics for held objects. Host validates grab, clients interpolate. Sync: grab bool + object NetworkId.",status:"todo"},
+  {id:"s0_bull_rooms",sprint:0,title:"Bull in China Shop — Test Rooms",owner:"dev1",priority:"must",detail:"Configure procgen for narrow corridors + squeeze points. Spawn varied-mass clutter at configurable density.",status:"todo"},
+  {id:"s0_bull_collision",sprint:0,title:"Collision Detection on Held Items",owner:"dev1",priority:"must",detail:"OnCollisionEnter force calc. CCD on held objects. Log collision events (UI counter). Track: collisions, force, objects knocked.",status:"todo"},
+  {id:"s0_props_v1",sprint:0,title:"Physics Props — First Batch",owner:"art",priority:"must",detail:"5-8 props replacing ProBuilder: 2 small fragile, 2 medium awkward, 2 heavy. Correct collision meshes + mass values.",status:"todo"},
+  {id:"s0_movement_polish",sprint:0,title:"Movement Polish Pass",owner:"dev2",priority:"should",detail:"Smooth networked jitter, tune interpolation, fix rubber-banding.",status:"todo"},
+  {id:"s0_playtest",sprint:0,title:"Physics Feel Playtest",owner:"team",priority:"must",detail:"Multiplayer playtest: Is grab clumsy-but-fun? Does carrying through corridors create tension? Record footage.",status:"todo"},
+
+  // ══ S1: Vertical Slice Part 1 — Core Systems ══
+  {id:"s1_voice_polish",sprint:1,title:"Voice Chat Polish",owner:"dev1",priority:"must",detail:"Fix quirks in proximity + radio. Wall occlusion (low-pass filter on raycast). MIC radio distortion FX. Test across all roles.",status:"todo"},
+  {id:"s1_guard_fsm",sprint:1,title:"Guard AI — Full FSM",owner:"dev2",priority:"must",detail:"Upgrade patrol placeholder to 5-state: Patrol→Suspicious→Chase→Attack→Ragdoll. Vision cones, noise-radius detection. Host-only AI, sync state enum + target pos + alert level.",status:"todo"},
+  {id:"s1_guard_deactivation",sprint:1,title:"Guard Deactivation Prototype",owner:"dev1",priority:"must",detail:"Procedural visual traits (color, wings, accessories) + audio traits (unique sounds per guard). Swiper sees/hears traits, describes to MIC. MIC uses matrix to find 4-digit code. Code input → guard ragdolls with momentum. Wrong code = -30s penalty.",status:"todo"},
+  {id:"s1_deact_matrix",sprint:1,title:"Deactivation Matrix + Manual UI",owner:"dev1",priority:"must",detail:"Procedural matrix gen per session seed: rows=visual, cols=auditory, cells=4-digit codes. MIC-only scrollable manual. Guard sounds audible to Swiper ONLY (forced verbal relay).",status:"todo"},
+  {id:"s1_vacuum",sprint:1,title:"Vacuum Tube System",owner:"dev1",priority:"must",detail:"Portable vacuum with suction trigger zone. Despawn item on enter → add value to [Networked] CurrentHaul. Size restriction check. Placeholder hose physics.",status:"todo"},
+  {id:"s1_loot_threshold",sprint:1,title:"Loot Threshold + Aquarium",owner:"dev1",priority:"must",detail:"CurrentHaul vs SessionGoal comparison. When met: aquarium shatter RPC. Sealed aquarium visual states: grayed→gold→shattered. MIC threshold bar UI.",status:"todo"},
+  {id:"s1_mic_polish",sprint:1,title:"MIC Blueprint Polish",owner:"dev1",priority:"must",detail:"Polish existing blueprint: Swiper dots with vision cones at 30Hz. Guard red dots. Threshold bar. Toggle between map view and terminal/manual view.",status:"todo"},
+  {id:"s1_timer_penalties",sprint:1,title:"Timer Penalty System",owner:"dev2",priority:"must",detail:"Upgrade basic timer: penalty queue for simultaneous mistakes. Floating red text in world space. Visual escalation at 60s (pulse red, music trigger). Zero-hour = arrest state.",status:"todo"},
+  {id:"s1_bull_sound",sprint:1,title:"Bull in China Shop — Sound Pings",owner:"dev2",priority:"must",detail:"Knocked objects create noise radius that draws guards. Connect collision detection to guard AI suspicious state. Fragile items = louder pings.",status:"todo"},
+  {id:"s1_envart",sprint:1,title:"Environment Kit Assembly",owner:"art",priority:"must",detail:"Full modular kit: walls (3 variants), floors (2), ceiling tiles, door frames, vent grates. Replace ProBuilder in procgen.",status:"todo"},
+  {id:"s1_techart",sprint:1,title:"Visual Foundation",owner:"techart",priority:"must",detail:"Highlight shader (rarity colors), post-processing stack, basic lighting rig for facility.",status:"todo"},
+  {id:"s1_guard_art",sprint:1,title:"First Guard Creature Model",owner:"art",priority:"must",detail:"One guard species: rigged + animated (walk, alert, chase, ragdoll). Procedural visual trait slots (color tint, accessories). Distinct silhouette.",status:"todo"},
+  {id:"s1_guard_audio",sprint:1,title:"Guard Procedural Audio",owner:"techart",priority:"must",detail:"Procedural sound system for guards: randomized audio traits per creature instance. Must be audible to Swiper only, not MIC. 5-8 base sound variations that can be combined.",status:"todo"},
+  {id:"s1_playtest_vs1",sprint:1,title:"VS Part 1 Playtest",owner:"team",priority:"must",detail:"Can players: grab loot → carry to vacuum → meet threshold → unlock artifact? Can MIC guide Swipers + deactivate guards via voice? Does it feel like a heist? Record footage, document issues.",status:"todo"},
+
+  // ══ S2: Vertical Slice Part 2 — Integration & First Door Module ══
+  {id:"s2_door",sprint:2,title:"Door Breaching Module × 1",owner:"dev1",priority:"must",detail:"Microverse camera shift. Procedural puzzle state from seed. MIC Bypass Codex page with conditional logic. Wrong input = -15s + reset.",status:"todo"},
+  {id:"s2_sabotage",sprint:2,title:"Sabotage / Needy Modules × 2",owner:"dev2",priority:"must",detail:"Alarm Override (quick snooze) + Blackout (connect-the-neurons). Random trigger every 60-90s. MIC must solve while Swipers navigate blind.",status:"todo"},
+  {id:"s2_sab_fx",sprint:2,title:"Sabotage Environment FX",owner:"techart",priority:"must",detail:"Blackout: real-time light toggle + NVG shader. State changes propagate via [Networked] bools from MIC terminal to 3D world.",status:"todo"},
+  {id:"s2_guard_ragdoll",sprint:2,title:"Guard Ragdoll + Jelly Physics",owner:"dev2",priority:"must",detail:"On deactivation: replace animated rig with ragdoll preserving momentum. Jelly floor tag in 3m radius (friction 0.1). Ragdoll as physics obstacle.",status:"todo"},
+  {id:"s2_vs_art",sprint:2,title:"Vertical Slice Art Polish",owner:"art",priority:"must",detail:"Final lighting for one facility. Floorborb model with mop-arm IK. Aquarium asset + shatter VFX. Vacuum tube model.",status:"todo"},
+  {id:"s2_bull_full",sprint:2,title:"Bull in China Shop — Full Pass",owner:"dev2",priority:"must",detail:"Procedural clutter profiles per corridor difficulty. CCD verified. Sound pings → guard AI alerts working end-to-end. Fragility thresholds on all objects.",status:"todo"},
+  {id:"s2_integration",sprint:2,title:"Full Heist Loop Integration",owner:"dev1",priority:"must",detail:"Wire everything: enter facility → grab loot → carry to vacuum → avoid/deactivate guards → solve door module → meet threshold → extract artifact → timer runs out = arrest. All networked 3-player.",status:"todo"},
+  {id:"s2_playtest",sprint:2,title:"Vertical Slice Playtest & Bugfix",owner:"team",priority:"must",detail:"2 full days of 3-player testing. Full heist loop start to finish. Priority bug fixes. Focus: networking stability, grab feel, guard deactivation flow, MIC experience. Record footage for trailer reference.",status:"todo"},
+
+  // ══ S3: Demo Content + Polish ══
+  {id:"s3_door2",sprint:3,title:"Door Modules × 2 More",owner:"dev1",priority:"must",detail:"Color-matching variant + timed pressure variant. New Bypass Codex pages per variant.",status:"todo"},
+  {id:"s3_guard2",sprint:3,title:"2nd Guard Species",owner:"art",priority:"should",detail:"New silhouette + behavioral variant (blind but acute hearing). New deactivation matrix entry.",status:"todo"},
+  {id:"s3_summary",sprint:3,title:"Heist Summary Screen",owner:"dev2",priority:"must",detail:"Gross Haul tally (animated), XP bar, bail deductions, mugshot system. Save results to local JSON.",status:"todo"},
+  {id:"s3_lobby_demo",sprint:3,title:"Demo Lobby Polish",owner:"dev1",priority:"must",detail:"Polish existing lobby: clean role selection UX, ready-up flow, room codes for friends. Solo fallback stub.",status:"todo"},
+  {id:"s3_gadgets",sprint:3,title:"Gadgets: Shrink + Gravity",owner:"dev2",priority:"should",detail:"Shrink Gun (0.5x scale via Tween), Gravity Gun (invert gravity). SphereCast aim with 5% sway. Omni-Cell counter.",status:"todo"},
+  {id:"s3_demoart",sprint:3,title:"Demo Level Art Polish",owner:"art",priority:"must",detail:"Hero props for vault room, 15-20 junk objects, environmental storytelling pieces, OmniCorp branding.",status:"todo"},
+  {id:"s3_audio",sprint:3,title:"Audio First Pass",owner:"techart",priority:"should",detail:"Placeholder SFX (grab, drop, vacuum, alarm, guard alert). 1 ambient + 1 tension track. 3D spatial curves.",status:"todo"},
+  {id:"s3_sab_oxygen",sprint:3,title:"Sabotage: Oxygen Depletion",owner:"dev2",priority:"should",detail:"3rd needy module. MIC balances micro-ecosystem. Failure = timer drains at 3x speed.",status:"todo"},
+
+  // ══ S4: Demo Polish & Stabilization ══
+  {id:"s4_nettest",sprint:4,title:"Network Stress Test & Fix",owner:"dev1",priority:"must",detail:"20+ sessions, latency sim, AoI tuning (<100 NetworkObjects/client), object pooling audit.",status:"todo"},
+  {id:"s4_solo",sprint:4,title:"Solo Play Fallback",owner:"dev1",priority:"must",detail:"For demo: auto-MIC or bot MIC for solo players. Critical for Next Fest — most will try alone first.",status:"todo"},
+  {id:"s4_settings",sprint:4,title:"Settings Menu",owner:"dev2",priority:"must",detail:"Resolution, audio sliders (4: master/music/SFX/voice), key rebinding, controller prompts.",status:"todo"},
+  {id:"s4_steam",sprint:4,title:"Steam Page + Steamworks",owner:"dev1",priority:"must",detail:"Coming Soon page, capsule art, tags, Auto-Cloud saves, Rich Presence, demo app ID.",status:"todo"},
+  {id:"s4_demofeat",sprint:4,title:"Demo-Specific Features",owner:"dev2",priority:"must",detail:"Wishlist CTA end screen, 'Available in Full Release' labels, session cap, analytics hook.",status:"todo"},
+  {id:"s4_vispol",sprint:4,title:"Visual Polish Pass",owner:"techart",priority:"must",detail:"Final lighting, UI polish, VFX pass (aquarium shatter, vacuum particles, penalty text), trailer capture.",status:"todo"},
+
+  // ══ S4.5: Demo Submit + Press ══
+  {id:"s45_submit",sprint:4.5,title:"Demo Build & Valve Submit",owner:"dev1",priority:"must",detail:"Final demo build, crash reporting (Sentry), upload to Steamworks. Submit by Jun 1. Hotfix pipeline ready.",status:"todo"},
+  {id:"s45_nextprep",sprint:4.5,title:"Next Fest Preparation",owner:"team",priority:"must",detail:"Livestream schedule, Discord community setup, monitoring shift assignments.",status:"todo"},
+
+  // ══ S5: Steam Next Fest ══
+  {id:"s5_liveops",sprint:5,title:"Live Ops (Next Fest)",owner:"team",priority:"must",detail:"Monitor crashes, hotfix <4hr, community engagement, livestreams.",status:"todo"},
+  {id:"s5_data",sprint:5,title:"Post-Fest Data Analysis",owner:"dev1",priority:"must",detail:"Analytics, feedback categorization, MoSCoW backlog for Phase 3.",status:"todo"},
+  {id:"s5_save",sprint:5,title:"Save System Architecture",owner:"dev2",priority:"should",detail:"Crew profile schema, JSON versioning, atomic writes, Steam Cloud prep.",status:"todo"},
+
+  // ══ S6: Content + Meta-Progression ══
+  {id:"s6_levels",sprint:6,title:"2 Additional Tilesets",owner:"art",priority:"must",detail:"2 new facility environments with kit pieces, unique props, sealed artifacts.",status:"todo"},
+  {id:"s6_economy",sprint:6,title:"Economy System Full Loop",owner:"dev2",priority:"must",detail:"Transaction ledger, XP accumulator, bail calc, currency integration.",status:"todo"},
+  {id:"s6_shop",sprint:6,title:"Shop (Simplified)",owner:"dev2",priority:"must",detail:"Gadget Emporium, Floorborb Essentials, rotating stock timer.",status:"todo"},
+  {id:"s6_galaxy",sprint:6,title:"Galactic Navigation (3 Planets)",owner:"dev1",priority:"must",detail:"Ship bridge map, fuel gauge, travel check, planet select.",status:"todo"},
+  {id:"s6_guard3",sprint:6,title:"3rd Guard Species",owner:"art",priority:"should",detail:"New behavioral variant, per-planet assignment, difficulty scaling.",status:"todo"},
+
+  // ══ S7: Feature Lock ══
+  {id:"s7_lobbyf",sprint:7,title:"Lobby Full Version",owner:"dev1",priority:"must",detail:"Hall of Fame/Shame, customization station, role assignment, mission intel.",status:"todo"},
+  {id:"s7_trophy",sprint:7,title:"Trophy System",owner:"dev2",priority:"must",detail:"Trophy display, LOD models, interactive inspection, mugshot capture rig.",status:"todo"},
+  {id:"s7_steamfeat",sprint:7,title:"Steamworks Features",owner:"dev1",priority:"must",detail:"15-20 achievements, Steam Cloud verify, Steam Input API, matchmaking.",status:"todo"},
+  {id:"s7_gadgets2",sprint:7,title:"Gadgets: Texture + Freeze",owner:"dev2",priority:"should",detail:"Texture Gun, Freeze Ray, Omni-Cell costs.",status:"todo"},
+  {id:"s7_tutorial",sprint:7,title:"Tutorial / Onboarding",owner:"dev1",priority:"must",detail:"Guided first heist, tooltip overlays, MIC tutorial, skippable.",status:"todo"},
+  {id:"s7_finalart",sprint:7,title:"Final Art Assets",owner:"art",priority:"must",detail:"3 sealed artifacts, ship lobby, all guard models finalized, UI art pass.",status:"todo"},
+
+  // ══ S8: Polish & Optimization ══
+  {id:"s8_perf",sprint:8,title:"Performance Optimization",owner:"dev1",priority:"must",detail:"Profiling, LODs, pooling audit, network bandwidth. 60FPS on GTX1060.",status:"todo"},
+  {id:"s8_balance",sprint:8,title:"Balance Pass",owner:"dev2",priority:"must",detail:"Timer/penalty tuning, guard stats, loot distribution, economy progression.",status:"todo"},
+  {id:"s8_bugs",sprint:8,title:"Bug Fixing Sprint",owner:"team",priority:"must",detail:"Clear all P0/P1 bugs, networking edge cases, regression testing.",status:"todo"},
+  {id:"s8_audiof",sprint:8,title:"Audio Final Pass",owner:"techart",priority:"should",detail:"Final SFX, music per planet, spatial tuning, guard vocalizations.",status:"todo"},
+  {id:"s8_a11y",sprint:8,title:"Accessibility Features",owner:"dev2",priority:"should",detail:"Subtitles, colorblind UI, hold/toggle, screen shake toggle, UI scaling.",status:"todo"},
+
+  // ══ S9: RC & Launch ══
+  {id:"s9_rc",sprint:9,title:"Release Candidate Build",owner:"team",priority:"must",detail:"Final build, full playthrough, Steam Deck test, upload to Steamworks.",status:"todo"},
+  {id:"s9_iarc",sprint:9,title:"IARC & Pricing",owner:"dev1",priority:"must",detail:"Age rating questionnaire, regional pricing, 10-15% launch discount.",status:"todo"},
+  {id:"s9_launch",sprint:9,title:"Launch Day Ops Plan",owner:"team",priority:"must",detail:"Photon CCU tier check, 8-12hr standby, hotfix pipeline tested, target 10 reviews.",status:"todo"},
+  {id:"s9_roadmap",sprint:9,title:"Post-Launch Roadmap",owner:"team",priority:"should",detail:"Public roadmap: 2 more planets, cosmetics, bargain bin, community features.",status:"todo"},
+
+  // ══ MARKETING LANE ══
+  {id:"m0_social",sprint:0,title:"[MKT] Create Social Accounts",owner:"marketing",priority:"must",detail:"Set up TikTok, Twitter/X, YouTube channel. Consistent branding, profile art, bio. Link to future Steam page.",status:"todo"},
+  {id:"m0_discord",sprint:0,title:"[MKT] Set Up Discord Server",owner:"marketing",priority:"must",detail:"Create community Discord: roles, channels (#announcements, #dev-updates, #feedback, #bug-reports). Invite link ready.",status:"todo"},
+  {id:"m1_tiktok",sprint:1,title:"[MKT] First TikTok/Shorts Content",owner:"marketing",priority:"must",detail:"3-5 short clips from physics feel playtest footage: wobbly grab moments, bull-in-china-shop disasters, co-op chaos. Post on TikTok + YouTube Shorts.",status:"todo"},
+  {id:"m2_steam_page",sprint:2,title:"[MKT] Steam Coming Soon Page",owner:"marketing",priority:"must",detail:"Create Coming Soon page: capsule art (462×174, 231×87, 616×353), 5+ screenshots from VS, description, tags (Co-op, Heist, Physics, Multiplayer, Stealth, Online Co-Op, Funny, Asymmetric).",status:"todo"},
+  {id:"m2_devlog1",sprint:2,title:"[MKT] First Dev Blog / Devlog",owner:"marketing",priority:"should",detail:"Write first devlog post about the game's premise and the physics comedy angle. Post on Steam, cross-post to Reddit r/indiegaming and r/gamedev.",status:"todo"},
+  {id:"m3_content_list",sprint:3,title:"[MKT] Content Creator Outreach List",owner:"marketing",priority:"must",detail:"Build list of 200-400 content creators (1K-50K followers) covering co-op games. Spreadsheet: name, platform, email, follower count, relevance score.",status:"todo"},
+  {id:"m3_tiktok2",sprint:3,title:"[MKT] Weekly TikTok Content",owner:"marketing",priority:"must",detail:"Begin posting 2-3 clips per week. Guard deactivation moments, heist chaos, MIC panic moments. Build consistent posting cadence.",status:"todo"},
+  {id:"m4_trailer",sprint:4,title:"[MKT] Steam Trailer",owner:"marketing",priority:"must",detail:"60-90 second trailer: gameplay in first 5s, co-op chaos, guard deactivation, bull-in-china-shop moments. End with wishlist CTA. Upload to Steam page.",status:"todo"},
+  {id:"m4_presskit",sprint:4,title:"[MKT] Press Kit",owner:"marketing",priority:"must",detail:"Screenshots, key art, GIFs of physics comedy, one-sheet game description, team info. Host on presskit.gg or similar.",status:"todo"},
+  {id:"m45_outreach",sprint:4.5,title:"[MKT] Content Creator Outreach",owner:"marketing",priority:"must",detail:"Send demo keys + personalized emails to content creator list. Target 1 week before Next Fest (June 8). Prioritize co-op streamers.",status:"todo"},
+  {id:"m45_fest_plan",sprint:4.5,title:"[MKT] Next Fest Marketing Plan",owner:"marketing",priority:"must",detail:"Schedule 2-3 livestream events. Prepare Discord community event. Social media posting schedule during fest week.",status:"todo"},
+  {id:"m5_fest_engage",sprint:5,title:"[MKT] Next Fest Community Engagement",owner:"marketing",priority:"must",detail:"Post daily on social media during fest. Respond to Steam reviews/forums. Share streamer clips. Track wishlist growth daily.",status:"todo"},
+  {id:"m6_launch_press",sprint:8,title:"[MKT] Launch Press & Streamer Keys",owner:"marketing",priority:"must",detail:"Distribute review keys 1-2 weeks pre-launch. Prioritize creators who covered demo. Prepare launch day announcement posts.",status:"todo"},
+  {id:"m9_launch_day",sprint:9,title:"[MKT] Launch Day Campaign",owner:"marketing",priority:"must",detail:"Coordinated launch: Steam announcement, social media blitz, Discord @everyone, monitor reviews, share positive coverage.",status:"todo"},
 ];
 
 const INITIAL_DEPS = [
-  ["s0_arch","s1_grab",true],["s0_arch","s1_loot",true],["s0_procgen","s1_loot",true],
-  ["s0_procgen","s1_mic",true],["s0_movement","s1_grab",true],["s0_artpipe","s1_envart",false],
-  ["s0_artpipe","s1_techart",false],["s1_grab","s2_guard",true],["s1_grab","s2_bull",true],
-  ["s1_loot","s2_timer",true],["s1_loot","s2_manual",true],["s1_mic","s2_manual",true],
-  ["s1_mic","s2_door",true],["s1_envart","s2_vsart",false],["s1_techart","s2_vsart",false],
-  ["s2_guard","s3_sabotage",true],["s2_guard","s3_verbal",false],["s2_guard","s3_guard2",false],
-  ["s2_manual","s3_voice",true],["s2_door","s3_sabotage",false],["s2_timer","s3_sabotage",true],
-  ["s2_vsart","s3_envfx",false],["s2_playtest","s3_voice",false],["s3_voice","s4_lobby",true],
-  ["s3_sabotage","s4_doors",false],["s3_verbal","s4_doors",false],["s3_guard2","s4_demoart",false],
-  ["s2_door","s4_doors",true],["s2_timer","s4_summary",true],["s1_grab","s4_gadgets",false],
-  ["s1_loot","s4_summary",true],["s4_lobby","s5_solo",true],["s4_lobby","s5_steam",true],
-  ["s4_summary","s5_demofeat",true],["s4_demoart","s5_vispol",false],["s4_audio","s5_vispol",false],
-  ["s4_doors","s5_nettest",false],["s4_gadgets","s5_nettest",false],["s5_nettest","s55_submit",true],
-  ["s5_solo","s55_submit",true],["s5_settings","s55_submit",true],["s5_steam","s55_submit",true],
-  ["s5_demofeat","s55_submit",true],["s5_vispol","s55_submit",true],["s5_vispol","s55_marketing",false],
-  ["s5_steam","s55_marketing",true],["s55_submit","s6_liveops",true],["s55_marketing","s6_liveops",true],
-  ["s55_nextprep","s6_liveops",true],["s6_data","s7_economy",true],["s6_data","s7_levels",false],
-  ["s6_save","s7_economy",true],["s6_save","s7_shop",true],["s4_summary","s7_economy",true],
-  ["s7_economy","s8_lobbyf",true],["s7_shop","s8_lobbyf",true],["s7_galaxy","s8_lobbyf",true],
-  ["s7_levels","s8_finalart",true],["s7_economy","s8_trophy",true],["s7_guard3","s8_finalart",false],
-  ["s4_gadgets","s8_gadgets2",false],["s4_lobby","s8_lobbyf",true],["s5_steam","s8_steamfeat",true],
-  ["s8_lobbyf","s9_perf",true],["s8_trophy","s9_perf",false],["s8_steamfeat","s9_bugs",true],
-  ["s8_gadgets2","s9_balance",false],["s8_tutorial","s9_bugs",false],["s8_finalart","s9_perf",true],
-  ["s8_finalart","s9_audiof",false],["s9_perf","s10_rc",true],["s9_balance","s10_rc",true],
-  ["s9_bugs","s10_rc",true],["s9_audiof","s10_rc",false],["s9_a11y","s10_rc",false],
-  ["s9_perf","s10_iarc",false],["s8_steamfeat","s10_iarc",true],["s55_marketing","s10_press",false],
+  // ── S0 internal (current sprint) ──
+  ["s0_arch","s0_grab_rework",true],
+  ["s0_movement","s0_grab_rework",true],
+  ["s0_movement","s0_movement_polish",false],
+  ["s0_procgen","s0_bull_rooms",true],
+  ["s0_artpipe","s0_props_v1",false],
+  ["s0_grab_rework","s0_wobble",true],
+  ["s0_grab_rework","s0_grab_net",true],
+  ["s0_wobble","s0_grab_net",false],
+  ["s0_bull_rooms","s0_bull_collision",true],
+  ["s0_props_v1","s0_bull_collision",false],
+  ["s0_grab_net","s0_playtest",true],
+  ["s0_bull_collision","s0_playtest",true],
+  ["s0_props_v1","s0_playtest",false],
+
+  // ── S0 → S1 ──
+  ["s0_grab_net","s1_guard_fsm",true],
+  ["s0_grab_net","s1_bull_sound",true],
+  ["s0_bull_collision","s1_bull_sound",true],
+  ["s0_voicechat","s1_voice_polish",true],
+  ["s0_guard_patrol","s1_guard_fsm",true],
+  ["s0_loot_spawn","s1_vacuum",true],
+  ["s0_loot_spawn","s1_loot_threshold",true],
+  ["s0_mic_blueprint","s1_mic_polish",true],
+  ["s0_timer_basic","s1_timer_penalties",true],
+  ["s0_playtest","s1_guard_deactivation",true],
+  ["s0_artpipe","s1_envart",false],
+  ["s0_artpipe","s1_guard_art",false],
+
+  // ── S1 internal ──
+  ["s1_guard_fsm","s1_guard_deactivation",true],
+  ["s1_guard_fsm","s1_bull_sound",true],
+  ["s1_guard_art","s1_guard_deactivation",false],
+  ["s1_guard_audio","s1_guard_deactivation",true],
+  ["s1_guard_deactivation","s1_deact_matrix",true],
+  ["s1_vacuum","s1_loot_threshold",true],
+  ["s1_loot_threshold","s1_mic_polish",false],
+  ["s1_deact_matrix","s1_playtest_vs1",true],
+  ["s1_vacuum","s1_playtest_vs1",true],
+  ["s1_timer_penalties","s1_playtest_vs1",true],
+  ["s1_voice_polish","s1_playtest_vs1",true],
+  ["s1_mic_polish","s1_playtest_vs1",true],
+  ["s1_bull_sound","s1_playtest_vs1",false],
+
+  // ── S1 → S2 ──
+  ["s1_playtest_vs1","s2_integration",true],
+  ["s1_guard_fsm","s2_guard_ragdoll",true],
+  ["s1_guard_deactivation","s2_guard_ragdoll",true],
+  ["s1_deact_matrix","s2_door",true],
+  ["s1_timer_penalties","s2_sabotage",true],
+  ["s1_guard_fsm","s2_sabotage",true],
+  ["s1_envart","s2_vs_art",false],
+  ["s1_techart","s2_vs_art",false],
+  ["s1_techart","s2_sab_fx",false],
+
+  // ── S2 internal ──
+  ["s2_door","s2_integration",true],
+  ["s2_sabotage","s2_integration",true],
+  ["s2_guard_ragdoll","s2_integration",true],
+  ["s2_bull_full","s2_integration",true],
+  ["s2_vs_art","s2_playtest",false],
+  ["s2_integration","s2_playtest",true],
+
+  // ── S2 → S3 ──
+  ["s2_playtest","s3_door2",true],
+  ["s2_door","s3_door2",true],
+  ["s2_playtest","s3_summary",true],
+  ["s2_playtest","s3_lobby_demo",true],
+  ["s2_guard_ragdoll","s3_guard2",false],
+  ["s0_grab_net","s3_gadgets",false],
+  ["s2_vs_art","s3_demoart",false],
+
+  // ── S3 → S4 ──
+  ["s3_lobby_demo","s4_solo",true],
+  ["s3_lobby_demo","s4_steam",true],
+  ["s3_summary","s4_demofeat",true],
+  ["s3_demoart","s4_vispol",false],
+  ["s3_audio","s4_vispol",false],
+  ["s3_door2","s4_nettest",false],
+  ["s3_gadgets","s4_nettest",false],
+
+  // ── S4 → S4.5 ──
+  ["s4_nettest","s45_submit",true],
+  ["s4_solo","s45_submit",true],
+  ["s4_settings","s45_submit",true],
+  ["s4_steam","s45_submit",true],
+  ["s4_demofeat","s45_submit",true],
+  ["s4_vispol","s45_submit",true],
+
+  // ── S4.5 → S5 ──
+  ["s45_submit","s5_liveops",true],
+  ["s45_nextprep","s5_liveops",true],
+
+  // ── S5 → S6 ──
+  ["s5_data","s6_economy",true],
+  ["s5_data","s6_levels",false],
+  ["s5_save","s6_economy",true],
+  ["s5_save","s6_shop",true],
+  ["s3_summary","s6_economy",true],
+
+  // ── S6 → S7 ──
+  ["s6_economy","s7_lobbyf",true],
+  ["s6_shop","s7_lobbyf",true],
+  ["s6_galaxy","s7_lobbyf",true],
+  ["s6_levels","s7_finalart",true],
+  ["s6_economy","s7_trophy",true],
+  ["s6_guard3","s7_finalart",false],
+  ["s3_gadgets","s7_gadgets2",false],
+  ["s3_lobby_demo","s7_lobbyf",true],
+  ["s4_steam","s7_steamfeat",true],
+
+  // ── S7 → S8 ──
+  ["s7_lobbyf","s8_perf",true],
+  ["s7_trophy","s8_perf",false],
+  ["s7_steamfeat","s8_bugs",true],
+  ["s7_gadgets2","s8_balance",false],
+  ["s7_tutorial","s8_bugs",false],
+  ["s7_finalart","s8_perf",true],
+  ["s7_finalart","s8_audiof",false],
+
+  // ── S8 → S9 ──
+  ["s8_perf","s9_rc",true],
+  ["s8_balance","s9_rc",true],
+  ["s8_bugs","s9_rc",true],
+  ["s8_audiof","s9_rc",false],
+  ["s8_a11y","s9_rc",false],
+  ["s7_steamfeat","s9_iarc",true],
+
+  // ── MARKETING DEPENDENCIES (blocked by dev milestones) ──
+  ["s0_playtest","m1_tiktok",true],
+  ["s2_playtest","m2_steam_page",true],
+  ["s2_playtest","m2_devlog1",false],
+  ["m2_steam_page","m3_content_list",true],
+  ["m2_steam_page","m3_tiktok2",false],
+  ["s4_vispol","m4_trailer",true],
+  ["m2_steam_page","m4_trailer",true],
+  ["m4_trailer","m4_presskit",false],
+  ["m3_content_list","m45_outreach",true],
+  ["s45_submit","m45_outreach",true],
+  ["m4_presskit","m45_outreach",true],
+  ["m45_outreach","m45_fest_plan",false],
+  ["s45_submit","m45_fest_plan",true],
+  ["m45_fest_plan","m5_fest_engage",true],
+  ["s5_liveops","m5_fest_engage",true],
+  ["m3_content_list","m6_launch_press",true],
+  ["s7_finalart","m6_launch_press",false],
+  ["m6_launch_press","m9_launch_day",true],
+  ["s9_rc","m9_launch_day",true],
 ];
 
 const SPRINTS = [
-  {num:0,label:"S0",dates:"Mar 7–21",phase:"phase1",title:"Foundation"},
-  {num:1,label:"S1",dates:"Mar 21–Apr 4",phase:"phase1",title:"Core Loop"},
-  {num:2,label:"S2",dates:"Apr 4–15",phase:"phase1",title:"VERT SLICE"},
-  {num:3,label:"S3",dates:"Apr 15–29",phase:"phase2",title:"Comms & Sab"},
-  {num:4,label:"S4",dates:"Apr 29–May 13",phase:"phase2",title:"Demo Content"},
-  {num:5,label:"S5",dates:"May 13–25",phase:"phase2",title:"Demo Polish"},
-  {num:5.5,label:"S5.5",dates:"May 25–Jun 8",phase:"phase2",title:"Submit"},
-  {num:6,label:"S6",dates:"Jun 8–22",phase:"fest",title:"NEXT FEST"},
-  {num:7,label:"S7",dates:"Jun 22–Jul 6",phase:"phase3",title:"Content+Meta"},
-  {num:8,label:"S8",dates:"Jul 6–20",phase:"phase3",title:"FEAT LOCK"},
-  {num:9,label:"S9",dates:"Jul 20–Aug 3",phase:"phase3",title:"Polish"},
-  {num:10,label:"S10",dates:"Aug 3–17",phase:"phase3",title:"LAUNCH"},
+  {num:0,label:"S0",dates:"Mar 7–21",phase:"phase1",title:"Foundation+Feel"},
+  {num:1,label:"S1",dates:"Mar 21–Apr 4",phase:"phase1",title:"VS Part 1"},
+  {num:2,label:"S2",dates:"Apr 4–18",phase:"phase1",title:"VS Part 2"},
+  {num:3,label:"S3",dates:"Apr 18–May 2",phase:"phase2",title:"Demo Content"},
+  {num:4,label:"S4",dates:"May 2–16",phase:"phase2",title:"Demo Polish"},
+  {num:4.5,label:"S4.5",dates:"May 16–Jun 1",phase:"phase2",title:"Submit+Press"},
+  {num:5,label:"S5",dates:"Jun 1–22",phase:"fest",title:"NEXT FEST"},
+  {num:6,label:"S6",dates:"Jun 22–Jul 6",phase:"phase3",title:"Content+Meta"},
+  {num:7,label:"S7",dates:"Jul 6–20",phase:"phase3",title:"FEAT LOCK"},
+  {num:8,label:"S8",dates:"Jul 20–Aug 3",phase:"phase3",title:"Polish"},
+  {num:9,label:"S9",dates:"Aug 3–18",phase:"phase3",title:"RC & LAUNCH"},
 ];
 
-const OWNER_LABELS={dev1:'Dev 1',dev2:'Dev 2',techart:'Tech Art',art:'Art/3D',team:'Full Team'};
-const OWNER_COLORS={dev1:'#3b82f6',dev2:'#8b5cf6',techart:'#06b6d4',art:'#f59e0b',team:'#10b981'};
+const OWNER_LABELS={dev1:'Dev 1',dev2:'Dev 2',techart:'Tech Art',art:'Art/3D',team:'Full Team',marketing:'Marketing'};
+const OWNER_COLORS={dev1:'#3b82f6',dev2:'#8b5cf6',techart:'#06b6d4',art:'#f59e0b',team:'#10b981',marketing:'#ec4899'};
 const PHASE_COLORS={phase1:'#3b82f6',phase2:'#10b981',fest:'#f59e0b',phase3:'#ef4444'};
 const STATUS_COLORS={done:'#10b981',wip:'#3b82f6',blocked:'#ef4444',todo:'#475569'};
 const STATUS_ICONS={done:'✓',wip:'◐',blocked:'!',todo:''};
@@ -708,16 +888,36 @@ function saveLocal() {
   try {
     localStorage.setItem('swipers_tasks', JSON.stringify(tasks));
     localStorage.setItem('swipers_deps', JSON.stringify(deps));
+    localStorage.setItem('swipers_data_version', DATA_VERSION);
   } catch(e){}
 }
 
 function loadLocal() {
   try {
+    const savedVersion = localStorage.getItem('swipers_data_version');
+    // If data version changed, reset to new defaults
+    if (savedVersion !== DATA_VERSION) {
+      localStorage.removeItem('swipers_tasks');
+      localStorage.removeItem('swipers_deps');
+      localStorage.setItem('swipers_data_version', DATA_VERSION);
+      return; // keep INITIAL data
+    }
     const t = localStorage.getItem('swipers_tasks');
     const d = localStorage.getItem('swipers_deps');
     if (t) tasks = JSON.parse(t);
     if (d) deps = JSON.parse(d);
   } catch(e){}
+}
+
+function resetToDefaults() {
+  if (!confirm('Reset all tasks and dependencies to defaults? This cannot be undone.')) return;
+  tasks = JSON.parse(JSON.stringify(INITIAL_TASKS));
+  deps = JSON.parse(JSON.stringify(INITIAL_DEPS));
+  localStorage.removeItem('swipers_tasks');
+  localStorage.removeItem('swipers_deps');
+  localStorage.setItem('swipers_data_version', DATA_VERSION);
+  if (db) { pushAllToFirebase(); logActivity('reset data to defaults'); }
+  renderAll();
 }
 
 function startOffline() {
