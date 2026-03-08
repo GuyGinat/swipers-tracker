@@ -404,6 +404,7 @@
       <span>Todo: <span class="stat-val" id="statTodo">0</span></span>
     </div>
     <div class="user-name-display" id="userDisplay" onclick="changeUserName()" title="Click to change name">—</div>
+    <button class="btn primary" onclick="openNewTaskPanel()">+ New Task</button>
     <button class="btn" onclick="exportData()">Export</button>
     <button class="btn" onclick="document.getElementById('importInput').click()">Import</button>
     <input type="file" id="importInput" accept=".json" onchange="importData(event)">
@@ -434,6 +435,7 @@
         <button class="filter-btn" data-filter-owner="team">Team</button>
       </div>
       <input class="search-input" type="text" placeholder="Search tasks..." id="searchInput" oninput="renderList()">
+      <button class="btn primary" onclick="openNewTaskPanel()" style="margin-left:auto">+ New Task</button>
     </div>
     <div class="list-scroll" id="listScroll"></div>
   </div>
@@ -1060,6 +1062,144 @@ function delTask(id){
   pushTaskDelete(id);
   logActivity(`deleted "${t?.title}"`);
   closeEditPanel(); selectedTaskId=null; renderAll();
+}
+
+// ══════════════════════════════════════════
+// NEW TASK
+// ══════════════════════════════════════════
+function openNewTaskPanel(){
+  document.getElementById('editTitle').textContent='New Task';
+  const c=document.getElementById('editContent');
+  c.innerHTML=`
+  <div class="field-group"><div class="field-label">Title *</div>
+    <input class="field-value" id="newTitle" placeholder="e.g. Audio Middleware Integration"></div>
+  <div class="field-group"><div class="field-label">Sprint *</div>
+    <select class="field-value" id="newSprint">
+      ${SPRINTS.map(s=>`<option value="${s.num}">${s.label}: ${s.title} (${s.dates})</option>`).join('')}
+    </select></div>
+  <div class="field-group"><div class="field-label">Owner *</div>
+    <select class="field-value" id="newOwner">
+      ${Object.entries(OWNER_LABELS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}
+    </select></div>
+  <div class="field-group"><div class="field-label">Priority</div>
+    <div class="status-radio-group">
+      <button class="status-radio active" data-p="must" onclick="document.querySelectorAll('#editContent [data-p]').forEach(b=>b.classList.remove('active'));this.classList.add('active');" style="border-color:var(--must)">MUST</button>
+      <button class="status-radio" data-p="should" onclick="document.querySelectorAll('#editContent [data-p]').forEach(b=>b.classList.remove('active'));this.classList.add('active');" style="border-color:var(--should)">SHOULD</button>
+    </div></div>
+  <div class="field-group"><div class="field-label">Status</div>
+    <div class="status-radio-group">
+      <button class="status-radio active" data-ns="todo" data-status="todo" onclick="document.querySelectorAll('#editContent [data-ns]').forEach(b=>b.classList.remove('active'));this.classList.add('active');">Todo</button>
+      <button class="status-radio" data-ns="wip" data-status="wip" onclick="document.querySelectorAll('#editContent [data-ns]').forEach(b=>b.classList.remove('active'));this.classList.add('active');">WIP</button>
+      <button class="status-radio" data-ns="blocked" data-status="blocked" onclick="document.querySelectorAll('#editContent [data-ns]').forEach(b=>b.classList.remove('active'));this.classList.add('active');">Blocked</button>
+      <button class="status-radio" data-ns="done" data-status="done" onclick="document.querySelectorAll('#editContent [data-ns]').forEach(b=>b.classList.remove('active'));this.classList.add('active');">Done</button>
+    </div></div>
+  <div class="field-group"><div class="field-label">Detail / Notes</div>
+    <textarea class="field-value" id="newDetail" placeholder="Implementation details, technical notes..."></textarea></div>
+  <div class="field-group"><div class="field-label">Blocked By (optional)</div>
+    <div id="newBlockersList" class="dep-list-edit"></div>
+    <div class="add-dep-row">
+      <select id="newBlockerSelect">
+        <option value="">+ Add blocker...</option>
+        ${tasks.map(x=>`<option value="${x.id}">[${SPRINTS.find(s=>s.num===x.sprint)?.label}] ${x.title}</option>`).join('')}
+      </select>
+      <button class="btn" onclick="addNewBlocker()">Add</button>
+    </div></div>
+  <div class="field-group"><div class="field-label">Blocks (optional)</div>
+    <div id="newBlocksList" class="dep-list-edit"></div>
+    <div class="add-dep-row">
+      <select id="newBlocksSelect">
+        <option value="">+ Add downstream...</option>
+        ${tasks.map(x=>`<option value="${x.id}">[${SPRINTS.find(s=>s.num===x.sprint)?.label}] ${x.title}</option>`).join('')}
+      </select>
+      <button class="btn" onclick="addNewBlocks()">Add</button>
+    </div></div>
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px">
+    <button class="btn primary" onclick="createNewTask()" style="flex:1">Create Task</button>
+    <button class="btn" onclick="closeEditPanel()">Cancel</button>
+  </div>`;
+  document.getElementById('editOverlay').classList.add('open');
+  document.getElementById('editPanel').classList.add('open');
+  // Focus title field
+  setTimeout(()=>document.getElementById('newTitle')?.focus(),100);
+}
+
+// Temp storage for new task deps before creation
+let _newBlockers = [];
+let _newBlocks = [];
+
+function addNewBlocker(){
+  const sel=document.getElementById('newBlockerSelect');
+  const id=sel.value; if(!id)return;
+  if(_newBlockers.includes(id))return;
+  _newBlockers.push(id);
+  sel.value='';
+  renderNewDepList('newBlockersList', _newBlockers, true);
+}
+
+function addNewBlocks(){
+  const sel=document.getElementById('newBlocksSelect');
+  const id=sel.value; if(!id)return;
+  if(_newBlocks.includes(id))return;
+  _newBlocks.push(id);
+  sel.value='';
+  renderNewDepList('newBlocksList', _newBlocks, false);
+}
+
+function removeNewDep(id, isBlocker){
+  if(isBlocker) _newBlockers=_newBlockers.filter(x=>x!==id);
+  else _newBlocks=_newBlocks.filter(x=>x!==id);
+  renderNewDepList(isBlocker?'newBlockersList':'newBlocksList', isBlocker?_newBlockers:_newBlocks, isBlocker);
+}
+
+function renderNewDepList(containerId, list, isBlocker){
+  const el=document.getElementById(containerId); if(!el)return;
+  el.innerHTML=list.map(id=>{
+    const t=tasks.find(x=>x.id===id);
+    return t?`<div class="dep-row"><div class="dep-name" style="color:${OWNER_COLORS[t.owner]}">${t.title}</div><button class="remove-dep" onclick="removeNewDep('${id}',${isBlocker})">×</button></div>`:'';
+  }).join('');
+}
+
+function createNewTask(){
+  const title=document.getElementById('newTitle').value.trim();
+  if(!title){alert('Title is required');document.getElementById('newTitle').focus();return;}
+  const sprint=parseFloat(document.getElementById('newSprint').value);
+  const owner=document.getElementById('newOwner').value;
+  const priority=(document.querySelector('#editContent [data-p].active')?.dataset.p)||'must';
+  const status=(document.querySelector('#editContent [data-ns].active')?.dataset.ns)||'todo';
+  const detail=document.getElementById('newDetail').value.trim();
+
+  // Generate unique ID from title
+  const slug=title.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,30);
+  const spLabel=SPRINTS.find(s=>s.num===sprint)?.label?.toLowerCase().replace('.','') || 's0';
+  let id=`${spLabel}_${slug}`;
+  // Ensure unique
+  let suffix=1;
+  while(tasks.some(t=>t.id===id)){id=`${spLabel}_${slug}_${suffix}`;suffix++;}
+
+  const newTask={id,sprint,title,owner,priority,detail,status};
+  tasks.push(newTask);
+
+  // Add dependencies
+  _newBlockers.forEach(blockerId=>{
+    if(!deps.some(([f,t])=>f===blockerId&&t===id))
+      deps.push([blockerId,id,false]);
+  });
+  _newBlocks.forEach(blocksId=>{
+    if(!deps.some(([f,t])=>f===id&&t===blocksId))
+      deps.push([id,blocksId,false]);
+  });
+
+  // Push to Firebase or save locally
+  pushTaskUpdate(newTask, `created "${title}"`);
+  if(_newBlockers.length||_newBlocks.length) pushDepsUpdate();
+
+  // Reset temp state
+  _newBlockers=[];
+  _newBlocks=[];
+
+  closeEditPanel();
+  selectedTaskId=id;
+  renderAll();
 }
 
 // ══════════════════════════════════════════
