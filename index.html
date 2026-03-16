@@ -147,10 +147,10 @@
   .main { display:flex; flex:1; overflow:hidden; }
 
   /* ── GRAPH ── */
-  .graph-panel { flex:1; overflow:hidden; position:relative; cursor:grab; display:none; }
-  .graph-panel.active { display:block; }
+  .graph-panel { flex:1; overflow:hidden; position:relative; cursor:grab; display:none; flex-direction:column; }
+  .graph-panel.active { display:flex; }
   .graph-panel.dragging { cursor:grabbing; }
-  .graph-viewport { transform-origin:0 0; position:relative; will-change:transform; }
+  .graph-viewport { transform-origin:0 0; position:relative; will-change:transform; flex:1; }
   .graph-panel svg.arrows { position:absolute; top:0; left:0; pointer-events:none; overflow:visible; }
   .graph-panel svg.arrows path {
     fill:none; stroke:var(--arrow); stroke-width:1.5; opacity:0.35;
@@ -351,6 +351,28 @@
   .tooltip .tt-status { margin-top:6px; font-family:'JetBrains Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:0.5px; }
 
   #importInput { display:none; }
+
+  /* ── GRAPH TOOLBAR ── */
+  .graph-toolbar {
+    padding:10px 20px; display:flex; gap:10px; align-items:center;
+    border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap;
+    background:var(--bg); position:relative; z-index:10; cursor:default;
+  }
+  .graph-toolbar .filter-group { flex-wrap:wrap; }
+  .graph-sort-select {
+    background:var(--surface); border:1px solid var(--border); border-radius:5px;
+    padding:3px 8px; font-family:'JetBrains Mono',monospace; font-size:10px;
+    color:var(--text); outline:none; cursor:pointer; transition:border-color 0.15s;
+  }
+  .graph-sort-select:focus { border-color:var(--phase1); }
+  .filter-mode-toggle {
+    padding:3px 8px; border-radius:4px; font-family:'JetBrains Mono',monospace;
+    font-size:10px; border:1px solid var(--border); background:transparent;
+    color:var(--text-dim); cursor:pointer; transition:all 0.12s; margin-left:auto;
+  }
+  .filter-mode-toggle:hover { border-color:var(--border-hover); color:var(--text); }
+  .task-node.filtered-out { opacity:0.12; pointer-events:none; }
+  .arrows path.filtered-out-arrow { opacity:0.08; }
 </style>
 </head>
 <body>
@@ -414,6 +436,37 @@
 
 <div class="main" id="mainApp" style="display:none">
   <div class="graph-panel active" id="graphPanel">
+    <div class="graph-toolbar" id="graphToolbar">
+      <div class="filter-group">
+        <span class="filter-label">Status:</span>
+        <button class="filter-btn active" data-gfilter-status="all">All</button>
+        <button class="filter-btn" data-gfilter-status="todo">Todo</button>
+        <button class="filter-btn" data-gfilter-status="wip">WIP</button>
+        <button class="filter-btn" data-gfilter-status="blocked">Blocked</button>
+        <button class="filter-btn" data-gfilter-status="done">Done</button>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Owner:</span>
+        <button class="filter-btn active" data-gfilter-owner="all">All</button>
+        <button class="filter-btn" data-gfilter-owner="dev1">Dev 1</button>
+        <button class="filter-btn" data-gfilter-owner="dev2">Dev 2</button>
+        <button class="filter-btn" data-gfilter-owner="techart">Tech Art</button>
+        <button class="filter-btn" data-gfilter-owner="art">Art/3D</button>
+        <button class="filter-btn" data-gfilter-owner="team">Team</button>
+        <button class="filter-btn" data-gfilter-owner="marketing">Marketing</button>
+      </div>
+      <input class="search-input" type="text" placeholder="Search tasks..." id="graphSearchInput">
+      <div class="filter-group">
+        <span class="filter-label">Sort:</span>
+        <select class="graph-sort-select" id="graphSortSelect">
+          <option value="default">Default</option>
+          <option value="priority">Priority</option>
+          <option value="status">Status</option>
+          <option value="owner">Owner</option>
+        </select>
+      </div>
+      <button class="filter-mode-toggle" id="filterModeToggle" title="Toggle between dimming and hiding filtered tasks">Mode: Dim</button>
+    </div>
     <div class="graph-viewport" id="graphViewport"></div>
   </div>
   <div class="list-panel" id="listPanel">
@@ -436,7 +489,7 @@
         <button class="filter-btn" data-filter-owner="team">Team</button>
         <button class="filter-btn" data-filter-owner="marketing">Marketing</button>
       </div>
-      <input class="search-input" type="text" placeholder="Search tasks..." id="searchInput" oninput="renderList()">
+      <input class="search-input" type="text" placeholder="Search tasks..." id="searchInput">
       <button class="btn primary" onclick="openNewTaskPanel()" style="margin-left:auto">+ New Task</button>
     </div>
     <div class="list-scroll" id="listScroll"></div>
@@ -764,8 +817,10 @@ let tasks = JSON.parse(JSON.stringify(INITIAL_TASKS));
 let deps = JSON.parse(JSON.stringify(INITIAL_DEPS));
 let currentTab = 'graph';
 let selectedTaskId = null;
-let filterStatus = 'all';
-let filterOwner = 'all';
+let filterStatus = new Set(); // empty = all
+let filterOwner = new Set();  // empty = all
+let graphSort = 'default';
+let graphFilterMode = 'dim';
 let userName = 'Anonymous';
 let db = null;
 let isOnline = false;
@@ -1031,10 +1086,30 @@ function renderGraph() {
   svg.classList.add('arrows'); svg.id='arrowsSvg';
   svg.innerHTML=`<defs><marker id="ah" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5 Z" fill="#334155"/></marker><marker id="ah-c" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5 Z" fill="#ef4444"/></marker><marker id="ah-h" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5 Z" fill="#3b82f6"/></marker></defs>`;
   vp.appendChild(svg);
+  const graphSearch=(document.getElementById('graphSearchInput')?.value||'').toLowerCase();
+  function taskMatchesFilter(t){
+    if(filterStatus.size&&!filterStatus.has(t.status))return false;
+    if(filterOwner.size&&!filterOwner.has(t.owner))return false;
+    if(graphSearch&&!t.title.toLowerCase().includes(graphSearch)&&!t.detail.toLowerCase().includes(graphSearch))return false;
+    return true;
+  }
+  const STATUS_ORDER={blocked:0,todo:1,wip:2,done:3};
+  function sortTasks(arr){
+    if(graphSort==='default')return arr;
+    return arr.slice().sort((a,b)=>{
+      if(graphSort==='priority'){const pa=a.priority==='must'?0:1,pb=b.priority==='must'?0:1;return pa-pb;}
+      if(graphSort==='status')return (STATUS_ORDER[a.status]??4)-(STATUS_ORDER[b.status]??4);
+      if(graphSort==='owner')return (OWNER_LABELS[a.owner]||'').localeCompare(OWNER_LABELS[b.owner]||'');
+      return 0;
+    });
+  }
   const byS={}; tasks.forEach(t=>{if(!byS[t.sprint])byS[t.sprint]=[];byS[t.sprint].push(t);});
+  const filteredIds=new Set();
   let maxY=0;
   SPRINTS.forEach((sp,ci)=>{
-    const x=PAD_L+ci*(COL_W+COL_GAP), ts=byS[sp.num]||[];
+    const x=PAD_L+ci*(COL_W+COL_GAP), allTs=sortTasks(byS[sp.num]||[]);
+    const ts=graphFilterMode==='hide'?allTs.filter(taskMatchesFilter):allTs;
+    allTs.forEach(t=>{if(!taskMatchesFilter(t))filteredIds.add(t.id);});
     const band=document.createElement('div'); band.className='phase-band';
     band.style.cssText=`left:${x-8}px;width:${COL_W+16}px;background:${PHASE_COLORS[sp.phase]}`;
     vp.appendChild(band);
@@ -1046,7 +1121,7 @@ function renderGraph() {
     const dt=document.createElement('div'); dt.className='sprint-dates'; dt.textContent=sp.dates; col.appendChild(dt);
     let yOff=44;
     ts.forEach(task=>{
-      const node=document.createElement('div'); node.className='task-node'; node.dataset.id=task.id;
+      const node=document.createElement('div'); node.className='task-node'+(filteredIds.has(task.id)?' filtered-out':''); node.dataset.id=task.id;
       const bar=document.createElement('div'); bar.className='priority-bar';
       bar.style.background=task.priority==='must'?'var(--must)':'var(--should)'; node.appendChild(bar);
       if(task.status!=='todo'){ const si=document.createElement('div'); si.className='status-icon';
@@ -1075,7 +1150,9 @@ function renderGraph() {
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d',`M${fp.right},${fp.cy} C${fp.right+cp},${fp.cy} ${tp.left-cp},${tp.cy} ${tp.left},${tp.cy}`);
     path.setAttribute('marker-end',crit?'url(#ah-c)':'url(#ah)');
-    if(crit) path.classList.add('critical'); path.dataset.from=from; path.dataset.to=to; svg.appendChild(path);
+    if(crit) path.classList.add('critical'); path.dataset.from=from; path.dataset.to=to;
+    if(filteredIds.has(from)||filteredIds.has(to)) path.classList.add('filtered-out-arrow');
+    svg.appendChild(path);
   });
 }
 
@@ -1102,10 +1179,10 @@ function clearGraphHighlight(){
 let scale=0.82,panX=0,panY=0,isDrag=false,dsx,dsy;
 const gp=document.getElementById('graphPanel');
 function updateTransform(){document.getElementById('graphViewport').style.transform=`translate(${panX}px,${panY}px) scale(${scale})`;}
-gp.addEventListener('mousedown',e=>{if(e.target.closest('.task-node'))return;isDrag=true;dsx=e.clientX-panX;dsy=e.clientY-panY;gp.classList.add('dragging');});
+gp.addEventListener('mousedown',e=>{if(e.target.closest('.task-node')||e.target.closest('.graph-toolbar'))return;isDrag=true;dsx=e.clientX-panX;dsy=e.clientY-panY;gp.classList.add('dragging');});
 window.addEventListener('mousemove',e=>{if(!isDrag)return;panX=e.clientX-dsx;panY=e.clientY-dsy;updateTransform();});
 window.addEventListener('mouseup',()=>{isDrag=false;gp.classList.remove('dragging');});
-gp.addEventListener('wheel',e=>{e.preventDefault();const d=e.deltaY>0?0.92:1.08,ns=Math.max(0.2,Math.min(2.5,scale*d));const r=gp.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;panX=mx-(mx-panX)*(ns/scale);panY=my-(my-panY)*(ns/scale);scale=ns;updateTransform();},{passive:false});
+gp.addEventListener('wheel',e=>{if(e.target.closest('.graph-toolbar'))return;e.preventDefault();const d=e.deltaY>0?0.92:1.08,ns=Math.max(0.2,Math.min(2.5,scale*d));const r=gp.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;panX=mx-(mx-panX)*(ns/scale);panY=my-(my-panY)*(ns/scale);scale=ns;updateTransform();},{passive:false});
 
 // Graph click
 gp.addEventListener('click',e=>{
@@ -1142,8 +1219,8 @@ function renderList(){
   const byS={}; tasks.forEach(t=>{if(!byS[t.sprint])byS[t.sprint]=[];byS[t.sprint].push(t);});
   SPRINTS.forEach(sp=>{
     let items=(byS[sp.num]||[]).filter(t=>{
-      if(filterStatus!=='all'&&t.status!==filterStatus)return false;
-      if(filterOwner!=='all'&&t.owner!==filterOwner)return false;
+      if(filterStatus.size&&!filterStatus.has(t.status))return false;
+      if(filterOwner.size&&!filterOwner.has(t.owner))return false;
       if(search&&!t.title.toLowerCase().includes(search)&&!t.detail.toLowerCase().includes(search))return false;
       return true;
     }); if(!items.length) return;
@@ -1410,15 +1487,71 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active'); currentTab=btn.dataset.tab;
     document.getElementById('graphPanel').classList.toggle('active',currentTab==='graph');
-    document.getElementById('graphPanel').style.display=currentTab==='graph'?'block':'none';
+    document.getElementById('graphPanel').style.display=currentTab==='graph'?'flex':'none';
     document.getElementById('listPanel').classList.toggle('active',currentTab==='list');
   });
 });
+// Multi-select filter helper: syncs active classes across both toolbars
+function syncFilterBtns(attrList, attrGraph, filterSet){
+  // Update active class on both list and graph toolbar buttons
+  document.querySelectorAll(`[${attrList}]`).forEach(b=>{
+    const v=b.getAttribute(attrList);
+    b.classList.toggle('active', v==='all' ? filterSet.size===0 : filterSet.has(v));
+  });
+  document.querySelectorAll(`[${attrGraph}]`).forEach(b=>{
+    const v=b.getAttribute(attrGraph);
+    b.classList.toggle('active', v==='all' ? filterSet.size===0 : filterSet.has(v));
+  });
+}
+
+function handleFilterClick(value, filterSet, attrList, attrGraph){
+  if(value==='all'){ filterSet.clear(); }
+  else if(filterSet.has(value)){ filterSet.delete(value); }
+  else { filterSet.add(value); }
+  syncFilterBtns(attrList, attrGraph, filterSet);
+  renderAll();
+}
+
+// List status filter buttons
 document.querySelectorAll('[data-filter-status]').forEach(btn=>{
-  btn.addEventListener('click',()=>{document.querySelectorAll('[data-filter-status]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');filterStatus=btn.dataset.filterStatus;renderList();});
+  btn.addEventListener('click',()=>handleFilterClick(btn.dataset.filterStatus, filterStatus, 'data-filter-status', 'data-gfilter-status'));
 });
+// List owner filter buttons
 document.querySelectorAll('[data-filter-owner]').forEach(btn=>{
-  btn.addEventListener('click',()=>{document.querySelectorAll('[data-filter-owner]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');filterOwner=btn.dataset.filterOwner;renderList();});
+  btn.addEventListener('click',()=>handleFilterClick(btn.dataset.filterOwner, filterOwner, 'data-filter-owner', 'data-gfilter-owner'));
+});
+// Graph status filter buttons
+document.querySelectorAll('[data-gfilter-status]').forEach(btn=>{
+  btn.addEventListener('click',()=>handleFilterClick(btn.dataset.gfilterStatus, filterStatus, 'data-filter-status', 'data-gfilter-status'));
+});
+// Graph owner filter buttons
+document.querySelectorAll('[data-gfilter-owner]').forEach(btn=>{
+  btn.addEventListener('click',()=>handleFilterClick(btn.dataset.gfilterOwner, filterOwner, 'data-filter-owner', 'data-gfilter-owner'));
+});
+
+// Graph search input - sync with list search
+document.getElementById('graphSearchInput').addEventListener('input',function(){
+  const listSearch=document.getElementById('searchInput');
+  if(listSearch) listSearch.value=this.value;
+  renderAll();
+});
+// List search input - sync with graph search
+document.getElementById('searchInput').addEventListener('input',function(){
+  const graphSearch=document.getElementById('graphSearchInput');
+  if(graphSearch) graphSearch.value=this.value;
+  renderAll();
+});
+
+// Graph sort dropdown
+document.getElementById('graphSortSelect').addEventListener('change',function(){
+  graphSort=this.value; renderAll();
+});
+
+// Filter mode toggle (dim/hide)
+document.getElementById('filterModeToggle').addEventListener('click',function(){
+  graphFilterMode=graphFilterMode==='dim'?'hide':'dim';
+  this.textContent='Mode: '+(graphFilterMode==='dim'?'Dim':'Hide');
+  renderAll();
 });
 
 // ══════════════════════════════════════════
